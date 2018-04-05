@@ -54,7 +54,7 @@ Definition ballot :=  ({v : list cand | (NoDup v) /\ ( [] <> v)} * Q).
 
 Variable bs : list ballot.
 Variable st : nat. 
-
+Variable quota : Q.
 Definition length_empty: length ([]:list cand) <= st.
 Proof.
  simpl.
@@ -236,7 +236,7 @@ Inductive FT_Judgement :=
     * list cand                            (* backlog of candidates requiring transfer *)
     * {elected: list cand | length  elected <= st}            (* elected candidates no longer in the running *)
     * {hopeful: list cand | NoDup hopeful}                    (* hopeful candidates still in the running *)
-    * Q                                                       (*the quota*)
+ 
       -> FT_Judgement
  | winners:                                                   (** final state **)
       list cand -> FT_Judgement.                              (* election winners *)
@@ -339,7 +339,7 @@ Definition FT_m: { j: FT_Judgement | not (FT_final j) } -> FT_WFO.
  exact 1.
  split.
  exact 0. split. exact 0. exact 0.
- destruct p as [[[[[[ba t] p] bl] e] h] qu].
+ destruct p as [[[[[ba t] p] bl] e] h].
  split.
  exact 0.
  split.
@@ -388,74 +388,73 @@ Definition mk_nfj: forall j: FT_Judgement, forall e: not (FT_final j), { j : FT_
 Defined.
 
 Definition Is_Legitimate_Initial (R : FT_Judgement -> FT_Judgement -> Prop) :=  
-  (forall premise, forall ba qu, (premise = initial ba) -> existsT conclusion,
-     (conclusion = state (Filter ba, [nty], nas, nbdy, emp_elec, all_hopeful,qu)) *  
+  (forall premise, forall ba, (premise = initial ba) -> existsT conclusion,
+     (conclusion = state (Filter ba, [nty], nas, nbdy, emp_elec, all_hopeful)) *  
       R premise conclusion) * 
-  (forall p c, R p c -> exists ba ba' t ass bl e h qu, (p = initial ba) /\ (c = state (ba', t, ass, bl, e, h, qu))).
-     
+  (forall p c, R p c -> exists ba ba' t ass bl e h, (p = initial ba) /\ (c = state (ba', t, ass, bl, e, h))).
+
 Definition Is_Legitimate_Count (R: FT_Judgement -> FT_Judgement -> Prop) :=
- (forall premise, forall ba t p  bl h e qu, (premise = state (ba, t, p ,bl ,e, h, qu)) -> (ba <> []) ->
+ (forall premise, forall ba t p  bl h e, (premise = state (ba, t, p ,bl ,e, h)) -> (ba <> []) ->
     existsT conclusion, (R premise conclusion)) *
- (forall (p: FT_Judgement) (c: FT_Judgement), R p c -> exists ba1 ba2 t1 t2 p1 p2 bl e h qu, 
-   (p = state (ba1, t1, p1, bl, e, h, qu)) /\ 
-   (c = state (ba2, t2 :: t1, p2, bl, e, h, qu)) /\ 
+ (forall (p: FT_Judgement) (c: FT_Judgement), R p c -> exists ba1 ba2 t1 t2 p1 p2 bl e h, 
+   (p = state (ba1, t1, p1, bl, e, h)) /\ 
+   (c = state (ba2, t2 :: t1, p2, bl, e, h)) /\ 
    ( length ba2 < length ba1)).
 
 (* note that I have put the null tally as the default value for head in case of empty list *)
 Definition Is_Legitimate_Transfer (R: FT_Judgement -> FT_Judgement -> Prop) :=
- (forall premise, forall t p bl e h qu, (premise = state ([], t, p, bl, e, h, qu)) ->
+ (forall premise, forall t p bl e h, (premise = state ([], t, p, bl, e, h)) ->
    (length (proj1_sig e) < st) /\ (bl <> []) /\
-   (forall c, In c (proj1_sig h) -> ((hd nty t) c < qu)%Q) -> existsT conc, R premise conc) *
+   (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) -> existsT conc, R premise conc) *
  (forall premise conclusion, R premise conclusion ->
-   exists nba t p np bl nbl h e qu,
-   (premise = state ([], t, p, bl, e, h, qu)) /\
+   exists nba t p np bl nbl h e,
+   (premise = state ([], t, p, bl, e, h)) /\
    (length nbl < length bl) /\
-   (conclusion = state (nba, t, np, nbl, e, h, qu))). 
+   (conclusion = state (nba, t, np, nbl, e, h))). 
 
 Definition Is_Legitimate_Elect (R: FT_Judgement -> FT_Judgement -> Prop) :=
- (forall premise, forall t p bl e h qu, (premise = state ([], t, p, bl, e, h, qu)) ->
+ (forall premise, forall t p bl e h, (premise = state ([], t, p, bl, e, h)) ->
      (existsT (c: cand), 
      (length (proj1_sig e)) + 1 <= st /\  
-     In c (proj1_sig h) /\ ((hd nty t) (c) >= qu)%Q) -> existsT conc, R premise conc) *
+     In c (proj1_sig h) /\ ((hd nty t) (c) >= quota)%Q) -> existsT conc, R premise conc) *
  (forall premise conclusion, R premise conclusion ->
      exists 
-     t p np bl nbl e ne nh h qu, 
-     (premise = state ([], t, p, bl, e, h, qu)) /\
+     t p np bl nbl e ne nh h, 
+     (premise = state ([], t, p, bl, e, h)) /\
           (length (proj1_sig nh) < length (proj1_sig h)) /\
           (length (proj1_sig e) < length (proj1_sig ne)) /\
-     (conclusion = state ([], t, np, nbl, ne, nh, qu))).
+     (conclusion = state ([], t, np, nbl, ne, nh))).
 
 Definition Is_Legitimate_Elim (R: FT_Judgement -> FT_Judgement -> Prop) :=
-  (forall premise, forall t p e h qu, (premise = state ([], t, p, [], e, h, qu)) ->
+  (forall premise, forall t p e h, (premise = state ([], t, p, [], e, h)) ->
      length (proj1_sig e) + length (proj1_sig h) > st /\
-     (forall c, In c (proj1_sig h) -> ((hd nty t) c < qu)%Q) -> existsT conc, R premise conc) * 
+     (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) -> existsT conc, R premise conc) * 
   (forall premise conclusion, R premise conclusion ->
-     exists nba t p np e h nh qu,
-     (premise = state ([], t, p, [], e, h, qu)) /\
+     exists nba t p np e h nh,
+     (premise = state ([], t, p, [], e, h)) /\
      length (proj1_sig nh) < length (proj1_sig h) /\
-     (conclusion = state (nba, t, np, [], e, nh, qu))).
+     (conclusion = state (nba, t, np, [], e, nh))).
 
 Definition Is_Legitimate_Hwin (R: FT_Judgement -> FT_Judgement -> Prop) :=
-  (forall premise, forall ba t p bl e h qu, (premise = state (ba, t, p, bl, e, h, qu)) ->
+  (forall premise, forall ba t p bl e h, (premise = state (ba, t, p, bl, e, h)) ->
      length (proj1_sig e) + (length (proj1_sig h)) <= st -> existsT conc, R premise conc) *
   (forall premise conclusion, R premise conclusion ->
-     exists w ba t p bl e h qu,
-      (premise = state (ba, t, p, bl, e, h, qu)) /\ 
+     exists w ba t p bl e h,
+      (premise = state (ba, t, p, bl, e, h)) /\ 
       w = (proj1_sig e) ++ (proj1_sig h) /\ 
       (conclusion = winners w)).
 
 Definition Is_Legitimate_Ewin (R: FT_Judgement -> FT_Judgement -> Prop) :=
- (forall premise, forall ba t p bl e h qu, (premise = state (ba, t, p, bl, e, h, qu)) ->
+ (forall premise, forall ba t p bl e h, (premise = state (ba, t, p, bl, e, h)) ->
     length (proj1_sig e) = st -> existsT conc, R premise conc) *
  (forall premise conclusion, R premise conclusion ->
-    exists w ba t p bl e h qu,
-    (premise = state (ba, t, p, bl, e, h, qu)) /\
+    exists w ba t p bl e h,
+    (premise = state (ba, t, p, bl, e, h)) /\
      w = (proj1_sig e) /\ 
     (conclusion = winners (proj1_sig e))).
 
 Record STV := 
-   mkSTV {qu: nat -> nat -> Q; 
-          val_initBallot: list ballot -> bool;
+   mkSTV {qu: Q;
           initStep: FT_Judgement -> FT_Judgement -> Prop;
           evidence_initStep: (Is_Legitimate_Initial initStep);
           count: FT_Judgement -> FT_Judgement -> Prop;
@@ -486,9 +485,9 @@ Proof.
  destruct evidence_initStep0 as [Hev1 Hev2].
  specialize (Hev2 (initial l) (initial l0)).
  intuition.
- destruct H1 as [ba [ba' [t [ass [bl [e [h [qu [Hev21 Hev22]]]]]]]]].
+ destruct H0 as [ba [ba' [t [ass [bl [e [h [Hev21 Hev22]]]]]]]].
  inversion Hev22. 
- destruct p as [[[[[[ba1 t1] p1] bl1] e1] h1] qu1].
+ destruct p as [[[[[ba1 t1] p1] bl1] e1] h1].
  unfold FT_m.
  simpl.
  unfold FT_wfo.
@@ -498,7 +497,7 @@ Proof.
  destruct evidence_initStep0 as [Hev1 Hev2].
  specialize (Hev2 (state p) c).
  intuition.
- destruct H1 as [ba [ba' [t [ass [bl [e1 [h1 [qu [Hev21 Hev22]]]]]]]]].
+ destruct H0 as [ba [ba' [t [ass [bl [e1 [h1 [Hev21 Hev22]]]]]]]].
  inversion Hev21.
  contradict ep. unfold FT_final. exists l. auto.
 Qed.
@@ -514,14 +513,14 @@ Proof.
  unfold Is_Legitimate_Count in evidence_count0.
  destruct evidence_count0 as [Hev1 Hev2].
  specialize (Hev2 p c Hr).
- destruct Hev2 as [ba1 [ba2 [t1 [t2 [p1 [p2 [e [h [qu [Hev21 [Hev22 Hev23]]]]]]]]]]].
+ destruct Hev2 as [ba1 [ba2 [t1 [t2 [p1 [p2 [e [h [Hev21 [Hev22 Hev23]]]]]]]]]].
  destruct p.
  inversion Hev22. 
  destruct c.
  destruct Hev23 as [Hev231 Hev232].
  inversion Hev231.
- destruct p as [[[[[[ba11 t11] p11] bl11] e11] h11] qu11].
- destruct p0 as [[[[[[ba22 t22] p22] bl22] e22] h22] qu22].
+ destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
+ destruct p0 as [[[[[ba22 t22] p22] bl22] e22] h22].
  unfold FT_m.
  simpl.
  unfold FT_wfo.
@@ -545,13 +544,13 @@ Proof.
  unfold Is_Legitimate_Transfer in evidence_transfer0.
  destruct evidence_transfer0 as [Hev1 Hev2].
  specialize (Hev2 p c Hr).
- destruct Hev2 as [nba [t [p0 [np [bl [nbl [h [e [qu [Hev21 [Hev22 Hev23]]]]]]]]]]].
+ destruct Hev2 as [nba [t [p0 [np [bl [nbl [h [e [Hev21 [Hev22 Hev23]]]]]]]]]].
  destruct p.
  inversion Hev21.
  destruct c.
  inversion Hev23.
- destruct p as [[[[[[ba11 t11] p11] bl11] e11] h11] qu11].
- destruct p1 as [[[[[[ba22 t22] p22] bl22] e22] h22] qu22].
+ destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
+ destruct p1 as [[[[[ba22 t22] p22] bl22] e22] h22].
  inversion Hev21. inversion Hev23. subst.
  unfold FT_m.
  simpl.
@@ -573,13 +572,13 @@ Proof.
  unfold Is_Legitimate_Elect in evidence_elect0.
  destruct evidence_elect0 as [Hev1 Hev2].
  specialize (Hev2 p c Hr).
- destruct Hev2 as [t [p0 [np [bl [nbl [e [ne [nh [h [qu [Hev21 [Hev22 [Hev23 Hev24]]]]]]]]]]]]].
+ destruct Hev2 as [t [p0 [np [bl [nbl [e [ne [nh [h [Hev21 [Hev22 [Hev23 Hev24]]]]]]]]]]]].
  destruct p.
  inversion Hev21.
  destruct c.
  inversion Hev24.
- destruct p as [[[[[[ba11 t11] p11] bl11] e11] h11] qu11].
- destruct p1 as [[[[[[ba22 t22] p22] bl22] e22] h22] qu22].
+ destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
+ destruct p1 as [[[[[ba22 t22] p22] bl22] e22] h22].
  inversion Hev21. inversion Hev24. subst.
  unfold FT_m.
  simpl.
@@ -601,13 +600,13 @@ Proof.
  unfold Is_Legitimate_Elim in evidence_elim0.
  destruct evidence_elim0 as [Hev1 Hev2].
  specialize (Hev2 p c Hr).
- destruct Hev2 as [nba [t [p0 [np [e [h [nh [qu [Hev21 [Hev22 Hev23]]]]]]]]]].
+ destruct Hev2 as [nba [t [p0 [np [e [h [nh [Hev21 [Hev22 Hev23]]]]]]]]].
  destruct p.
  inversion Hev21.
  destruct c.
  inversion Hev23.
- destruct p as [[[[[[ba11 t11] p11] bl11] e11] h11] qu11].
- destruct p1 as [[[[[[ba22 t22] p22] bl22] e22] h22] qu22].
+ destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
+ destruct p1 as [[[[[ba22 t22] p22] bl22] e22] h22].
  inversion Hev21. inversion Hev23. subst.
  unfold FT_m.
  simpl.
@@ -629,7 +628,7 @@ Proof.
  unfold Is_Legitimate_Hwin in evidence_hwin0.
  destruct evidence_hwin0 as [Hev1 Hev2].
  specialize (Hev2 p c Hr).
- destruct Hev2 as [w [ba [t [p0 [bl [e [h [qu [Hev21 [Hev22 Hev23]]]]]]]]]].
+ destruct Hev2 as [w [ba [t [p0 [bl [e [h [Hev21 [Hev22 Hev23]]]]]]]]].
  destruct p.
  inversion Hev21.
  destruct c.
@@ -650,7 +649,7 @@ Proof.
  unfold Is_Legitimate_Ewin in evidence_ewin0.
  destruct evidence_ewin0 as [Hev1 Hev2].
  specialize (Hev2 p c Hr).
- destruct Hev2 as [w [ba [t [p0 [e [h [qu [Hev21 [Hev22 [Hev23 Hev24]]]]]]]]]].
+ destruct Hev2 as [w [ba [t [p0 [e [h [Hev21 [Hev22 [Hev23 Hev24]]]]]]]]].
  destruct p.
  inversion Hev21.
  inversion Hev22.
@@ -706,12 +705,12 @@ Proof.
  simpl.
  unfold Is_Legitimate_Initial in  evidence_initStep0.
  destruct evidence_initStep0 as [HevInit1 HevInit2]. 
- specialize (HevInit1 (initial l) l (qu0 st (length bs)) (eq_refl)).
+ specialize (HevInit1 (initial l) l (eq_refl)).
  destruct HevInit1 as [conc [H11 H12]].
  exists conc.
  left; left; left; left; left;left. auto.
  simpl.
- destruct p as [[[[[[ba t] pile] bl] e] h] q].
+ destruct p as [[[[[ba t] pile] bl] e] h].
  specialize (lt_eq_lt_dec (length (proj1_sig e)) st). intro LenElected.
  (* examining if we have filled all seats *)
  destruct LenElected as [LenElected1 | LenElected2]. 
@@ -722,7 +721,7 @@ Proof.
  destruct LenElectedHopeful as [LenElectedHopeful1 | LenElectedHopeful2]. 
  (* the case where len (e ++ h) <= st *)
  destruct evidence_hwin0 as [HevHwin1 HevHwin2].
- specialize (HevHwin1 (state (ba, t, pile, bl, e, h, q)) ba t pile bl e h q (eq_refl) LenElectedHopeful1).
+ specialize (HevHwin1 (state (ba, t, pile, bl, e, h)) ba t pile bl e h  (eq_refl) LenElectedHopeful1).
  destruct HevHwin1 as [conc HevHwin11]. 
  exists conc.
  left. right. assumption.
@@ -758,7 +757,7 @@ Proof.
  right.
  exists x.
  split; auto ; auto.
- specialize (X0 q).
+ specialize (X0 quota).
  destruct X0.
  destruct bl.
  assert ((proj1_sig h) <> []).
@@ -774,14 +773,14 @@ Proof.
  intro. rewrite H2 in H0. inversion H0.
  (* the case for elimination *)
  destruct evidence_elim0 as [HevElim1 HevElim2].
- specialize (HevElim1 (state ([], t, pile, [], e, h, q)) t pile e h q (eq_refl)).
+ specialize (HevElim1 (state ([], t, pile, [], e, h)) t pile e h (eq_refl)).
  intuition. 
  destruct X0 as [conc Hconc].
  exists conc.
  left; left; right. auto.
  (* the case of transfer *)
  destruct evidence_transfer0 as [Hevtrans1 Hevtrans2].
- specialize (Hevtrans1 (state ([], t, pile, c::bl, e, h, q)) t pile (c::bl) e h q).
+ specialize (Hevtrans1 (state ([], t, pile, c::bl, e, h)) t pile (c::bl) e h).
  intuition.
  assert (Hyp: c:: bl = [] -> False). intro Hyp1. inversion Hyp1. 
  intuition.
@@ -790,10 +789,10 @@ Proof.
  left; left; left; right. assumption.
  (* the case for electing *)
  destruct evidence_elect0 as [HevElect1 HevElect2].
- specialize (HevElect1 (state ([], t, pile, bl, e, h, q)) t pile bl e h q (eq_refl)).
+ specialize (HevElect1 (state ([], t, pile, bl, e, h)) t pile bl e h (eq_refl)).
  destruct s as [c s1].
  assert (HypE2: existsT c, (length (proj1_sig e)) + 1 <= st /\ (In c (proj1_sig h)) 
-                                                           /\ (q <= (hd nty t) c)%Q). 
+                                                           /\ (quota <= (hd nty t) c)%Q). 
  exists c.
  split. omega. 
  auto.
@@ -803,7 +802,7 @@ Proof.
  left; left; left; left; right. assumption.
  (* the case for count application *)
  destruct evidence_count0 as [HevCount1 HevCount2]. 
- specialize (HevCount1 (state (b ::ba, t, pile, bl, e, h, q)) (b::ba) t pile bl h e q (eq_refl)).
+ specialize (HevCount1 (state (b ::ba, t, pile, bl, e, h)) (b::ba) t pile bl h e (eq_refl)).
  assert (HyCount: (b:: ba) <> []). intro. inversion H0.
  specialize (HevCount1 HyCount). 
  destruct HevCount1 as [conc HevCount].
@@ -811,7 +810,7 @@ Proof.
  left; left; left; left; left; right. auto.
  (* the case for ewin *)
  destruct evidence_ewin0 as [HevEwin1 HevEwin2].
- specialize (HevEwin1 (state (ba, t, pile, bl, e, h, q)) ba t pile bl e h q (eq_refl)). 
+ specialize (HevEwin1 (state (ba, t, pile, bl, e, h)) ba t pile bl e h  (eq_refl)). 
  intuition.
  destruct X as [conc X1]. 
  exists conc.
@@ -1198,9 +1197,9 @@ Proof.
 Qed.
 
 (*all the ballots which have already been filtered have no duplicate*)
-Lemma ballot_nodup: forall (ba: list ballot) (t : list (cand ->Q)) (p: cand -> list (list ballot)) (bl: list cand) (e: {elected: list cand | length elected <= st}) (h: {hopeful : list cand | NoDup hopeful}) (n: Q)  s,s= state (ba, t, p, bl, e, h, n) -> forall b: ballot, NoDup (proj1_sig (fst b)).
+Lemma ballot_nodup: forall (ba: list ballot) (t : list (cand ->Q)) (p: cand -> list (list ballot)) (bl: list cand) (e: {elected: list cand | length elected <= st}) (h: {hopeful : list cand | NoDup hopeful}) s,s= state (ba, t, p, bl, e, h) -> forall b: ballot, NoDup (proj1_sig (fst b)).
 Proof.
- intros ba t p bl e h n s H1 b.
+ intros ba t p bl e h  s H1 b.
  destruct b as [[b11 [b121 b122]] b2].
  simpl.
   assumption.
@@ -1228,7 +1227,7 @@ Proof.
  assumption.
  assumption.
  rewrite <- H1.
- apply (ballot_nodup ba t p bl e h n (state (ba, t, p, bl, e, h, n))).
+ apply (ballot_nodup ba t p bl e h (state (ba, t, p, bl, e, h))).
  reflexivity.
  destruct (is_first_hopeful).
  destruct H4.
@@ -2044,6 +2043,57 @@ Proof.
  apply (Permutation_app_comm).
 Qed.  
 
+Lemma Filter_segmentation: forall l a, Filter (a::l) = Filter l \/ (Filter (a::l) = a::Filter l).
+Proof.
+ intros l a.
+ simpl.
+ destruct (nodup_elem (proj1_sig (fst a)) && (non_empty (proj1_sig (fst a)))).
+ right.
+ reflexivity.
+ left.
+ auto.
+Qed.
+
+Lemma Permutation_reorder2: forall (A:Type) l k1 k2 (a:A), Permutation l ((a::k1)++k2) -> Permutation l (k1++a::k2).
+Proof.
+ intros A l k1 k2 a.
+ intro H.
+ induction k1.
+ auto.
+ apply (Permutation_trans H).
+ assert (Hypo: (a::a0::k1)++k2 = a::((a0::k1)++k2)).
+ simpl. auto.
+ rewrite Hypo.
+ apply Permutation_middle.
+Qed.
+
+Lemma Filter_Permutation_ballot: forall l:list ballot, exists l1, Permutation (l1++ (Filter l)) l.
+Proof.
+ intro l.
+ induction l.
+ simpl.
+ exists ([]:list ballot).
+ simpl.
+ apply Permutation_refl.
+ specialize (Filter_segmentation l a);intro H.
+ destruct H as [H1| H2].
+ rewrite H1.
+ destruct IHl as [l1 IHl1].
+ exists (a::l1).
+ rewrite <- (app_comm_cons).
+ apply (perm_skip). assumption.
+ rewrite H2.
+ destruct IHl as [l1 IHl1].
+ exists l1.
+ apply Permutation_sym.
+ simpl.
+ apply (Permutation_reorder2 ballot (a::l) l1 (Filter l) a).
+ simpl.
+ apply perm_skip.
+ apply Permutation_sym.
+ assumption.
+Qed.
+
 (* above this line may be added to the base of the framework *)
 (* ********************************************************************************************** *)
 (* The following excluded lemmas may be proved later *********************************
@@ -2056,24 +2106,51 @@ Lemma In_acc_IsIn_List_IsFirst : forall c h acc ba d, In d acc -> In d (List_IsF
 Lemma list_is_first_hopeful_Eq_List_IsFirst_Hopeful : 
  forall c h ba, forall b, In b (list_is_first_hopeful c h ba) -> In b (List_IsFirst_Hopeful c h [] ba).
 *) 
- 
+
+Definition Union_InitStep (prem :FT_Judgement) (conc :FT_Judgement): Prop :=
+ exists ba ba',  
+  prem = initial ba /\
+  ba' = (Filter ba) /\
+  conc = state(ba', [nty], nas, nbdy, emp_elec, all_hopeful).
+
+Lemma UnionInitStep_IsLegitimate : Is_Legitimate_Initial Union_InitStep.
+Proof.
+ unfold Is_Legitimate_Initial.
+ split.  
+ intros.
+ exists (state (Filter ba, [nty], nas, nbdy, emp_elec, all_hopeful)). 
+ split. auto.
+ unfold Union_InitStep.
+ exists ba.
+ exists (Filter ba).
+ split. assumption.
+ split;auto. 
+ intros.
+ unfold Union_InitStep in H.
+ destruct H as [ba [ba' H1]]. 
+ exists ba. exists ba'. exists [nty]. exists nas. exists nbdy. exists emp_elec. exists all_hopeful.
+ split;auto.
+ intuition.
+ intuition.
+Qed.
+
 Definition Union_count (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
- exists ba t nt p np bl h e qu,                (** count the ballots requiring attention **)
-  prem = state (ba, t, p, bl, e, h,qu) /\     (* if we are in an intermediate state of the count *) 
+ exists ba t nt p np bl h e,                (** count the ballots requiring attention **)
+  prem = state (ba, t, p, bl, e, h) /\     (* if we are in an intermediate state of the count *) 
   [] <> ba /\                                        (* and there are ballots requiring attention *)
   (forall c, if (cand_in_dec c (proj1_sig h)) then (exists l,                     
     np(c) = p(c) ++ [l] /\                       
     (forall b, In (proj1_sig (fst b)) (map (fun (d:ballot) => (proj1_sig (fst d))) l) <-> 
                                                                fcc ba (proj1_sig h) c b) /\ 
     (nt (c) = SUM (np(c)))) else ((nt c) = (hd nty t) c) /\ (np c) = (p c)) /\                 
-  conc = state ([], nt :: t, np, bl, e, h,qu).     
+  conc = state ([], nt :: t, np, bl, e, h).     
 
 Lemma UnionCount_IsLegitimate : Is_Legitimate_Count Union_count.
 Proof.
  unfold Is_Legitimate_Count.
  split. 
  intros.
- exists (state ([], (fun (c:cand) =>  if (cand_in_dec c (proj1_sig h)) then SUM (p (c) ++ [list_is_first_hopeful c (proj1_sig h) ba]) else (hd nty t) c) :: t, fun (c:cand) => (if (cand_in_dec c (proj1_sig h)) then (p (c) ++ [list_is_first_hopeful c (proj1_sig h) ba]) else (p c)), bl, e, h, qu0)).
+ exists (state ([], (fun (c:cand) =>  if (cand_in_dec c (proj1_sig h)) then SUM (p (c) ++ [list_is_first_hopeful c (proj1_sig h) ba]) else (hd nty t) c) :: t, fun (c:cand) => (if (cand_in_dec c (proj1_sig h)) then (p (c) ++ [list_is_first_hopeful c (proj1_sig h) ba]) else (p c)), bl, e, h)).
  unfold Union_count.
  exists ba.
  exists t.
@@ -2083,7 +2160,6 @@ Proof.
  exists bl.
  exists h.
  exists e.
- exists qu0.
  split; auto.
  split; auto.
  split.
@@ -2093,7 +2169,7 @@ Proof.
  split; auto.
  split.
  intro b.   
- apply (listballot_fcc ba t p bl e h qu0 c i b). 
+ apply (listballot_fcc ba t p bl e h quota c i b). 
  simpl.
  destruct (cand_in_dec c (proj1_sig h)). auto.
  contradict n. assumption.
@@ -2103,9 +2179,9 @@ Proof.
  auto. auto.
  intros p c H.  
  unfold Union_count in H.
- destruct H as [ba [t [nt [ p0 [np [bl [h [e [qu H1]]]]]]]]].
+ destruct H as [ba [t [nt [ p0 [np [bl [h [e H1]]]]]]]].
  exists ba; exists []; exists t. exists nt; exists p0. 
- exists np; exists bl; exists e; exists h; exists qu. split. intuition. 
+ exists np; exists bl; exists e; exists h. split. intuition. 
  split; intuition.
  specialize (list_nonempty ballot ba). intro Hyp.
  intuition.
@@ -2116,8 +2192,8 @@ Proof.
 Qed.
 
 Definition Union_hwin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
-  exists w ba t p bl e h qu,                            
-   prem = state (ba, t, p, bl, e, h, qu) /\           
+  exists w ba t p bl e h,                            
+   prem = state (ba, t, p, bl, e, h) /\           
    length (proj1_sig e) + length (proj1_sig h) <= st /\ 
    w = (proj1_sig e) ++ (proj1_sig h) /\                        
    conc = winners (w).
@@ -2130,18 +2206,18 @@ Proof.
  unfold Union_hwin.
  exists (winners ((proj1_sig e) ++ (proj1_sig h))).
  exists ((proj1_sig e) ++ (proj1_sig h)).
- exists ba. exists t. exists p. exists bl. exists e. exists h. exists qu0. 
+ exists ba; exists t; exists p; exists bl; exists e; exists h.  
  auto.
  intros.
  unfold Union_hwin in H. 
- destruct H as [w [ba [t [p [bl [e [h [qu H1]]]]]]]]. 
- exists w. exists ba. exists t. exists p. exists bl. exists e. exists h. exists qu.
+ destruct H as [w [ba [t [p [bl [e [h H1]]]]]]]. 
+ exists w; exists ba; exists t; exists p; exists bl; exists e; exists h. 
  intuition.
 Qed.
 
 Definition Union_ewin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
-  exists w ba t p bl e h qu,                    (** elected win **)
-   prem = state (ba, t, p, bl, e, h, qu) /\   (* if at any time *)
+  exists w ba t p bl e h,                    (** elected win **)
+   prem = state (ba, t, p, bl, e, h) /\   (* if at any time *)
    length (proj1_sig e) = st /\             (* we have as many elected candidates as seats *) 
    w = (proj1_sig e) /\                        (* and the winners are precisely the electeds *)
    conc = winners (w).                      (* they are declared the winners *)
@@ -2153,32 +2229,32 @@ Proof.
  intros.
  unfold Union_ewin.
  exists (winners (proj1_sig e)). 
- exists (proj1_sig e). exists ba. exists t. exists p. exists bl. exists e. exists h. exists qu0.
+ exists (proj1_sig e). exists ba. exists t. exists p. exists bl. exists e. exists h.
  intuition.
  intros.
  unfold Union_ewin in H.
- destruct H as [w [ba [t [p [bl [e [h [qu [H1]]]]]]]]].
- exists w. exists ba. exists t. exists p. exists bl. exists e. exists h. exists qu.
+ destruct H as [w [ba [t [p [bl [e [h H1]]]]]]].
+ exists w. exists ba. exists t. exists p. exists bl. exists e. exists h. 
  intuition.
- rewrite <- H.
+ rewrite <- H0.
  assumption.
 Qed.
 
 Definition Union_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
- exists nba t p np bl nbl h e qu,         (** transfer votes **) 
-  prem = state ([], t, p, bl, e, h,qu) /\ 
+ exists nba t p np bl nbl h e,         (** transfer votes **) 
+  prem = state ([], t, p, bl, e, h) /\ 
   (*if eq_dec_nat (length (proj1_sig e)) st then
   exists w, w= (proj1_sig e) /\  
   conc = winners (w) else *)
     (length (proj1_sig e) < st) /\
-    (forall c, In c (proj1_sig h) -> ((hd nty t) c < qu)%Q) /\        (* and we can't elect any candidate *)
+    (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\        (* and we can't elect any candidate *)
     exists l c,                          (* and there exists a list l and a candidate c *)
      (bl = c :: l /\                     (* such that c is the head of the backlog *)
      nbl = l /\                          (* and the backlog is updated by removing the head c *)
      nba = flat_map (fun x => x) (p c) /\            (* and the pile of ballots for c is the new list of ballots requiring attention *)
      np(c) = [] /\                                (* and the new pile for c is empty *)
      (forall d, d <> c -> np(d) = p(d))) /\ (* and the piles for every other candidate remain the same *)   
-   conc = state (nba, t, np, nbl, e, h, qu).  
+   conc = state (nba, t, np, nbl, e, h).  
 
 Lemma UnionTransfer_IsLegitimate : Is_Legitimate_Transfer Union_transfer.
 Proof.
@@ -2192,9 +2268,9 @@ Proof.
  destruct s as [bls H3].  
  exists (state (flat_map (fun x => x) (p c), t, fun d => 
                                                         if (cand_eq_dec d c) then [] else p d, 
-                                                        bls, e, h, qu0)).
+                                                        bls, e, h)).
  exists (flat_map (fun x => x) (p c)). exists t. exists p. 
- exists (fun d => if (cand_eq_dec d c) then [] else p d). exists bl. exists bls. exists h. exists e. exists qu0.
+ exists (fun d => if (cand_eq_dec d c) then [] else p d). exists bl. exists bls. exists h. exists e. 
  intuition.
  exists bls. exists c.
  intuition.
@@ -2205,10 +2281,10 @@ Proof.
  auto.
  intros.
  unfold Union_transfer in H.
- destruct H as [nba [t [p [np [bl [nbl [h [e [qu H1]]]]]]]]].
+ destruct H as [nba [t [p [np [bl [nbl [h [e H1]]]]]]]].
  destruct H1 as [H11 [H12 [H13 H14]]].
  destruct H14 as [l [ c H141]].
- exists nba; exists t; exists p; exists np; exists bl; exists nbl; exists h; exists e; exists qu.
+ exists nba; exists t; exists p; exists np; exists bl; exists nbl; exists h; exists e.
  intuition.
  subst.
  simpl.
@@ -2216,17 +2292,17 @@ Proof.
 Qed.
 
 Definition Union_elim (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
-  exists nba t p np e h nh qu,                    
-   prem = state ([], t, p, [], e, h, qu) /\         
+  exists nba t p np e h nh,                    
+   prem = state ([], t, p, [], e, h) /\         
    length (proj1_sig e) + length (proj1_sig h) > st /\ 
-   (forall c, In c (proj1_sig h) -> (hd nty t(c) < qu)%Q) /\ 
+   (forall c, In c (proj1_sig h) -> (hd nty t(c) < quota)%Q) /\ 
    exists c,                                            
      ((forall d, In d (proj1_sig h) -> (hd nty t(c) <= hd nty t(d)))%Q /\            
      eqe c (proj1_sig nh) (proj1_sig h) /\                                   
      nba = flat_map (fun x => x) (p c) /\                                   
      np(c)=[] /\                                       
      (forall d, d <> c -> np (d) = p (d))) /\                       
-   conc = state (nba, t, np, [], e, nh, qu). 
+   conc = state (nba, t, np, [], e, nh). 
 
 Lemma UnionElim_IsLegitimate : Is_Legitimate_Elim Union_elim.
 Proof.
@@ -2244,11 +2320,10 @@ Proof.
  destruct s as [min [s1 s2]].
  specialize (remc_nodup (proj1_sig h) min (proj2_sig h) s1);intro H'1.
  exists (state (flat_map (fun x => x) (p min), t, fun d => if (cand_eq_dec d min) then [] else (p d),
-                                                [], e, exist _ (remc min (proj1_sig h)) H'1, qu0)). 
+                                                [], e, exist _ (remc min (proj1_sig h)) H'1)). 
  exists (flat_map (fun x => x) (p min)).
  exists t. exists p. exists (fun d => if (cand_eq_dec d min) then [] else (p d)). exists e. exists h. 
  exists (exist _ (remc min (proj1_sig h)) H'1).
- exists qu0.
  intuition.
  exists min.
  intuition.
@@ -2259,10 +2334,10 @@ Proof.
  destruct (cand_eq_dec d min). contradiction H0. reflexivity.
  intros. 
  unfold Union_elim in H.
- destruct H as [nba [t [p [np [e [h [nh [qu H1]]]]]]]].
+ destruct H as [nba [t [p [np [e [h [nh H1]]]]]]].
  destruct H1 as [H11 [H12 [H13 H14]]].
  destruct H14 as [weakest H141]. 
- exists nba. exists t. exists p. exists np. exists e. exists h. exists nh. exists qu. 
+ exists nba. exists t. exists p. exists np. exists e. exists h. exists nh.  
  intuition.
  unfold eqe in H.
  destruct H as [l1 [l2 [H' [H'' [H''' H'''']]]]].
@@ -2279,20 +2354,20 @@ Proof.
 Qed.
 
 Definition Union_elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
- exists t p np (bl nbl: list cand) (nh h: {hopeful: list cand | NoDup hopeful})(e ne: {l : list cand | length l <= st }) qu,
-    prem = state ([], t, p, bl, e, h, qu) /\ 
+ exists t p np (bl nbl: list cand) (nh h: {hopeful: list cand | NoDup hopeful})(e ne: {l : list cand | length l <= st }),
+    prem = state ([], t, p, bl, e, h) /\ 
     exists l,                                      
      (l <> [] /\                                  
      length l <= st - length (proj1_sig e) /\    
-     (forall c, In c l -> In c (proj1_sig h) /\ (hd nty t (c) >= qu)%Q) /\      
+     (forall c, In c l -> In c (proj1_sig h) /\ (hd nty t (c) >= quota)%Q) /\      
      ordered (hd nty t) l /\ 
      Leqe l (proj1_sig nh) (proj1_sig h) /\          
      Leqe l (proj1_sig e) (proj1_sig ne) /\     
      (forall c, In c l -> ((np c) = map (map (fun (b : ballot) => 
-        (fst b, (Qred (snd b * (Qred ((hd nty t)(c)-qu)/(hd nty t)(c))))%Q))) (p c))) /\  
+        (fst b, (Qred (snd b * (Qred ((hd nty t)(c)- quota)/(hd nty t)(c))))%Q))) (p c))) /\  
      (forall c, ~ In c l -> np (c) = p (c)) /\  
      nbl = bl ++ l) /\                                 
-  conc = state ([], t, np, nbl, ne, nh, qu).      
+  conc = state ([], t, np, nbl, ne, nh).      
 
 Lemma UnionElect_IsLegitimate : Is_Legitimate_Elect Union_elect.
 Proof.
@@ -2306,18 +2381,18 @@ Proof.
  destruct X as [c [X1 X2]].
  assert (Hyp: length (proj1_sig e) < st).
  omega.
- specialize (H1 e (hd nty t) h qu0 Hyp (proj2_sig h)).
+ specialize (H1 e (hd nty t) h quota Hyp (proj2_sig h)).
  destruct H1 as [listElected H11].
  destruct H11 as [H111 [H112 [H113 [H114 H115]]]].
  specialize (Removel_nodup listElected (proj1_sig h) (proj2_sig h)). intro NoDupH.
  assert (Assum: length ((proj1_sig e) ++ listElected) <= st).
  rewrite app_length.
  omega.
- exists (state ([], t, fun c => update_pile p t listElected qu0 c, bl ++ listElected, 
- exist _ ((proj1_sig e) ++ listElected) Assum, exist _ (Removel listElected (proj1_sig h)) NoDupH, qu0)).
- exists t. exists p. exists (fun x => update_pile p t listElected qu0 x).
+ exists (state ([], t, fun c => update_pile p t listElected quota c, bl ++ listElected, 
+ exist _ ((proj1_sig e) ++ listElected) Assum, exist _ (Removel listElected (proj1_sig h)) NoDupH)).
+ exists t. exists p. exists (fun x => update_pile p t listElected quota x).
  exists bl. exists (bl ++ listElected). exists (exist _ (Removel listElected (proj1_sig h)) NoDupH).
- exists h. exists e. exists (exist _ ((proj1_sig e) ++ listElected) Assum). exists qu0.
+ exists h. exists e. exists (exist _ ((proj1_sig e) ++ listElected) Assum). 
  split. auto.
  exists listElected.
  intuition.
@@ -2355,8 +2430,8 @@ Proof.
  auto.
  intros.
  unfold Union_elect in H.
- destruct H as [t [p [np [bl [nbl [nh [h [e [ne [qu H1]]]]]]]]]].
- exists t. exists p; exists np. exists bl. exists nbl. exists e. exists ne. exists nh. exists h. exists qu.
+ destruct H as [t [p [np [bl [nbl [nh [h [e [ne H1]]]]]]]]].
+ exists t. exists p; exists np. exists bl. exists nbl. exists e. exists ne. exists nh. exists h. 
  destruct H1 as [H11 H12].
  destruct H12 as [l H121].
  intuition.
@@ -2379,6 +2454,24 @@ Proof.
  simpl.
  omega.
 Qed.
+
+Definition UnionSTV := (mkSTV (quota)  
+                         (Union_InitStep) (UnionInitStep_IsLegitimate) 
+                         (Union_count) (UnionCount_IsLegitimate)
+                         (Union_transfer) (UnionTransfer_IsLegitimate)
+                          (Union_elect) (UnionElect_IsLegitimate)
+                         (Union_elim) (UnionElim_IsLegitimate)
+                          (Union_hwin) (UnionHwin_IsLegitimate)
+                         (Union_ewin) (UnionEwin_IsLegitimate)).
+
+Definition Union_Termination := Termination UnionSTV.
+
+End STV_Framework.
+
+Extraction Language Haskell.
+
+Extraction "Lib.hs" Union_Termination.
+
   (* ****************************************************** *) 
  (* begining of the proof by first destructing on ba, old proof
  destruct ba.
