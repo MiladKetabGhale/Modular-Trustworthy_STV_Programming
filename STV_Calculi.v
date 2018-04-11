@@ -681,19 +681,19 @@ Proof.
 Qed.
 
 (*end of measure decreasing proof for new formalised rules*)
-(* start: Certificate st bs s (state (Filter bs, nty, nas, [], 
-                                    emp_elec,all_hopeful,
-                                    qu s (length (Filter bs)) st)) *)
+(* start: Certificate st bs s (state (Filter bs, [nty], nas, [], 
+                                    emp_elec,all_hopeful)) *)
 
-Inductive Certificate (st: nat) (bs: list ballot) (s: STV): FT_Judgement -> Type:=
-   start:  Certificate st bs s (initial (Filter bs)) 
- | appInit: forall j1 j2, Certificate st bs s j1 -> initStep s j1 j2 -> Certificate st bs s j2 
- | appCount: forall j1 j2, Certificate st bs s j1 -> count s j1 j2 -> Certificate st bs s j2   
- | appElect: forall j1 j2, Certificate st bs s j1 -> elect s j1 j2 -> Certificate st bs s j2
- | appTrans: forall j1 j2, Certificate st bs s j1 -> transfer s j1 j2 -> Certificate st bs s j2
- | appElim: forall j1 j2, Certificate st bs s j1 -> elim s j1 j2 -> Certificate st bs s j2 
- | appHwin: forall j1 j2, Certificate st bs s j1 -> hwin s j1 j2 -> Certificate st bs s j2
- | appEwin: forall j1 j2, Certificate st bs s j1 -> ewin s j1 j2 -> Certificate st bs s j2.
+
+Inductive Certificate (st: nat) (bs: list ballot) (s: STV) (j0: FT_Judgement): FT_Judgement -> Type:=
+   start:  forall j, (j = j0) -> Certificate st bs s j0 j
+ | appInit: forall j1 j2, Certificate st bs s j0 j1 -> initStep s j1 j2 -> Certificate st bs s j0 j2 
+ | appCount: forall j1 j2, Certificate st bs s j0 j1 -> count s j1 j2 -> Certificate st bs s j0 j2   
+ | appElect: forall j1 j2, Certificate st bs s j0 j1 -> elect s j1 j2 -> Certificate st bs s j0 j2
+ | appTrans: forall j1 j2, Certificate st bs s j0 j1 -> transfer s j1 j2 -> Certificate st bs s j0 j2
+ | appElim: forall j1 j2, Certificate st bs s j0 j1 -> elim s j1 j2 -> Certificate st bs s j0 j2 
+ | appHwin: forall j1 j2, Certificate st bs s j0 j1 -> hwin s j1 j2 -> Certificate st bs s j0 j2
+ | appEwin: forall j1 j2, Certificate st bs s j0 j1 -> ewin s j1 j2 -> Certificate st bs s j0 j2.
 
 Lemma Rule_Application : forall (s: STV) (j1: FT_Judgement), ~ (FT_final j1) -> 
                    existsT j2, {initStep s j1 j2} + {count s j1 j2} + {elect s j1 j2} + 
@@ -826,12 +826,12 @@ Qed.
 
 Lemma Extending_Certificate : 
   forall (s: STV),
-  forall j1, forall (ej1: ~ FT_final j1), Certificate st bs s j1 ->
+  forall j0 j1, forall (ej0: ~ FT_final j0) (ej1: ~ FT_final j1), Certificate st bs s j0 j1 ->
     existsT j2, 
-        (Certificate st bs s j2) * 
+        (Certificate st bs s j0 j2) * 
         (forall ej2: (~ FT_final j2), FT_wfo (FT_m (mk_nfj j2 ej2)) (FT_m (mk_nfj j1 ej1))).                     
 Proof.
- intros s j1 ej1 H0.
+ intros s j0 j1 ej0 ej1 H0.
  specialize (Rule_Application s j1 ej1). intro H1.
  destruct H1 as [conc H11].
  destruct H11 as [LH11 | RH11]. 
@@ -842,49 +842,50 @@ Proof.
  destruct LLLLLH11 as [L6H11 | RL5H11].
  exists conc.
  split.
- apply (appInit st bs s j1). assumption. auto.
+ apply (appInit st bs s j0 j1). assumption. auto.
  intro evconc. 
  apply (dec_Initial s j1 conc L6H11). 
  exists conc. 
  split.
- apply (appCount st bs s j1). assumption. auto.
+ apply (appCount st bs s j0 j1). assumption. auto.
  apply (dec_Count s j1 conc RL5H11).
  exists conc.
  split.
- apply (appElect st bs s j1). assumption. auto.
+ apply (appElect st bs s j0 j1). assumption. auto.
  apply (dec_Elect s j1 conc RLLLLH11). 
  exists conc. 
  split. 
- apply (appTrans st bs s j1).  assumption. auto.
+ apply (appTrans st bs s j0 j1).  assumption. auto.
  apply (dec_Transfer s j1 conc RLLLH11).
  exists conc.
  split.
- apply (appElim st bs s j1). assumption. auto.
+ apply (appElim st bs s j0 j1). assumption. auto.
  apply (dec_Elim s j1 conc RLLH11). 
  exists conc.
  split.
- apply (appHwin st bs s j1). assumption. auto.
+ apply (appHwin st bs s j0 j1). assumption. auto.
  apply (dec_Hwin s j1 conc RLH11).
  exists conc.
  split.
- apply (appEwin st bs s j1). assumption. auto.
+ apply (appEwin st bs s j0 j1). assumption. auto.
  apply (dec_Ewin s j1 conc RH11). 
 Qed.
 
 Lemma Termination_Aux : 
   forall (s: STV), 
   forall n: FT_WFO, 
-  forall j: FT_Judgement, 
-  forall evj: not (FT_final j), FT_m (mk_nfj j evj) = n -> 
-                              Certificate st bs s j -> existsT j', (FT_final j') * (Certificate st bs s j').
+  forall j0 (evj0: ~ FT_final j0),
+  forall j (evj: not (FT_final j)), FT_m (mk_nfj j evj) = n -> 
+        Certificate st bs s j0 j -> 
+           existsT j', (FT_final j') * (Certificate st bs s j0 j').
 Proof.                                                
- intros s n. 
+ intros s n j0 evj0. 
  induction n as [w IH] using (well_founded_induction_type FT_wfo_wf).
  intros j evj Eqn Certj.
  assert (Hex: existsT j', 
-   (Certificate st bs s j') * 
+   (Certificate st bs s j0 j') * 
    (forall evj' : not (FT_final j'), FT_wfo (FT_m (mk_nfj j' evj')) (FT_m (mk_nfj j evj)))).  
- apply (Extending_Certificate s j evj Certj). 
+ apply (Extending_Certificate s j0 j evj0 evj Certj). 
  destruct Hex as [j' [Hex1 Hex2]].
  destruct (final_dec j') as [f | nf].
  exists j'. split. assumption. auto.
@@ -897,17 +898,20 @@ Proof.
  auto.
 Qed.
 
-Theorem Termination : forall (s: STV), existsT j, (FT_final j) * (Certificate st bs s j).
+Theorem Termination : forall j0 (evj0: ~FT_final j0), forall (s: STV), 
+                            existsT j, (FT_final j) * (Certificate st bs s j0 j).
 Proof.
- intro s.
- destruct (final_dec (initial (Filter bs))) as [f | ea].
- exists (initial (Filter bs)). 
- split. 
- auto.
- apply start.
- apply (Termination_Aux s (FT_m (mk_nfj (initial (Filter bs)) ea)) (initial (Filter bs)) ea).  
+ intros j0 evj0 s.
+ destruct (final_dec j0) as [f | ea].
+ (*destruct (final_dec (state (Filter bs, [nty], nas, [], 
+                                    emp_elec,all_hopeful))) as [f | ea].*)
+ (*exists (state (Filter bs, [nty], nas, [], 
+                                    emp_elec,all_hopeful)). *)
+ contradict evj0.
+ assumption.
+ apply (Termination_Aux s (FT_m (mk_nfj j0 ea)) j0 ea j0 ea).  
  reflexivity.
- apply start.
+ apply start. auto.
 Qed. 
 
 (* End STV_Framework.
@@ -2455,7 +2459,10 @@ Proof.
  omega.
 Qed.
 
-Definition UnionSTV := (mkSTV (quota)  
+Definition Union_quota := 
+ (((inject_Z (Z.of_nat (length (Filter bs)))) / (1 + inject_Z (Z.of_nat st)) + 1)%Q). 
+
+Definition UnionSTV := (mkSTV (Union_quota)  
                          (Union_InitStep) (UnionInitStep_IsLegitimate) 
                          (Union_count) (UnionCount_IsLegitimate)
                          (Union_transfer) (UnionTransfer_IsLegitimate)
@@ -2464,13 +2471,316 @@ Definition UnionSTV := (mkSTV (quota)
                           (Union_hwin) (UnionHwin_IsLegitimate)
                          (Union_ewin) (UnionEwin_IsLegitimate)).
 
-Definition Union_Termination := Termination UnionSTV.
+Check (Termination).
+
+Lemma init_stages_R_initial : ~ FT_final (initial (Filter bs)).
+Proof.
+ intro.
+ unfold FT_final in H.
+ destruct H.
+ inversion H.
+Qed.
+ 
+Definition Union_Termination := Termination (initial (Filter bs)) init_stages_R_initial UnionSTV.
+
+ (* Below is the transfer rule changed so that all backlog is emptied in one go *)
+ (* Replacing this Transfer with Union_transfer, gets us close to ACT Legislative Assembly *)
+
+Lemma Emptying_Piles_Correct1 : forall (d: cand) (bl :list cand) (p: cand -> list (list ballot)), 
+ In d bl -> (fun c => if (cand_in_dec c bl) then [] else p (c)) d = []. 
+Proof.
+ intros.
+ simpl.
+ destruct (cand_in_dec d bl).
+ auto.
+ contradict n.
+ assumption.
+Qed.
+
+Lemma Emptying_Piles_Correct2 : forall (d:cand) (bl: list cand) (p: cand -> list (list ballot)),
+ not (In d bl) -> (fun c => if (cand_in_dec c bl) then [] else p (c)) d = p (d). 
+Proof.
+ intros.
+ simpl.
+ destruct (cand_in_dec d bl). 
+ contradict H.
+ assumption.
+ reflexivity.
+Qed.
+
+Definition ACT_LH_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+ exists nba t p np bl nbl h e,         (** transfer votes **) 
+  prem = state ([], t, p, bl, e, h) /\ 
+  (length (proj1_sig e) < st) /\
+  (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\        (* and we can't elect any candidate *)
+  exists l c,                          (* and there exists a list l and a candidate c *)
+   (bl = c :: l /\                     (* such that c is the head of the backlog *)
+   nbl = [] /\                          (* and the backlog is updated by removing the head c *)
+   nba = fold_left (fun (acc: list ballot) => (fun (c: cand) => (acc ++ (flat_map (fun x => x) (p c))))) bl []
+    /\ forall d, In d bl -> np(d) = [] /\                                (* and the new pile for c is empty *)
+     (forall d, not (In d bl) -> np(d) = p(d))) /\    
+   conc = state (nba, t, np, nbl, e, h).  
+
+Lemma ACT_LH_Transfer_IsLegitimate : Is_Legitimate_Transfer ACT_LH_transfer.
+Proof.
+ intros.
+ unfold Is_Legitimate_Transfer.
+ split.
+ intros.
+ destruct H0 as [H1 [H2 H3]]. 
+ exists (state 
+         (fold_left (fun (acc: list ballot) => (fun (c: cand) => (acc ++ (flat_map (fun x => x) (p c))))) bl [],
+         t, fun c => if (cand_in_dec c bl) then [] else (p c), [], e, h)).
+ unfold ACT_LH_transfer.
+ exists (fold_left (fun (acc: list ballot) => (fun (c: cand) => (acc ++ (flat_map (fun x => x) (p c))))) bl []).
+ exists t. exists p. exists (fun c => if (cand_in_dec c bl) then [] else (p c)). exists bl. exists [].
+ exists h. exists e. intuition.  
+ specialize (list_nonempty_type cand bl H2). intro Hyp. destruct Hyp as [ head [tail Hyp1]].
+ exists tail. exists head. intuition. 
+ destruct (cand_in_dec d bl) as [i1 | i2]. reflexivity. contradict i2. assumption.
+ destruct (cand_in_dec d0 bl) as [s1 | s2]. contradiction H4. auto.
+ intros.
+ unfold ACT_LH_transfer in H.
+ destruct H as [nba [t [p [np [bl [nbl [h [e H1]]]]]]]].
+ exists nba.
+ exists t. exists p. exists np.
+ exists bl. exists []. exists h. exists e. intuition. destruct H3 as [tail [head [H31 H32]]].
+ destruct H31 as [H311 H312].
+ rewrite H311.
+ simpl.
+ omega.
+ destruct H3 as [l [candid [H31 H32]]]. 
+ intuition.
+ rewrite H4 in H32.
+ assumption.
+Qed.
+
+Definition ACTLH_STV := (mkSTV (quota)  
+                         (Union_InitStep) (UnionInitStep_IsLegitimate) 
+                         (Union_count) (UnionCount_IsLegitimate)
+                         (ACT_LH_transfer) (ACT_LH_Transfer_IsLegitimate)
+                          (Union_elect) (UnionElect_IsLegitimate)
+                         (Union_elim) (UnionElim_IsLegitimate)
+                          (Union_hwin) (UnionHwin_IsLegitimate)
+                         (Union_ewin) (UnionEwin_IsLegitimate)).
+
+Definition ACTLH_Termination := Termination (initial (Filter bs)) init_stages_R_initial ACTLH_STV.
+
+
+(* transferring only the last parcel of the head of the backlog *)
+Definition LastParcel_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+ exists nba t p np bl nbl h e,         (** transfer votes **) 
+  prem = state ([], t, p, bl, e, h) /\ 
+  (length (proj1_sig e) < st) /\
+  (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\        (* and we can't elect any candidate *)
+  exists l c,                          (* and there exists a list l and a candidate c *)
+   (bl = c :: l /\                     (* such that c is the head of the backlog *)
+   nbl = l /\                          (* and the backlog is updated by removing the head c *)
+   nba = last (p c) [] /\ np(c) = [] /\                                (* and the new pile for c is empty *)
+     (forall d, d <> c -> np(d) = p(d))) /\    
+   conc = state (nba, t, np, nbl, e, h).  
+
+Lemma LastParcel_Transfer_IsLegitimate : Is_Legitimate_Transfer LastParcel_transfer.
+Proof.
+ unfold Is_Legitimate_Transfer. 
+ split. 
+ intros.
+ destruct H0 as [H1 [H2 H3]].
+ specialize (list_nonempty_type cand bl H2). intro Hyp. destruct Hyp as [head [tail Hyp1]].
+ exists (state (last (p head) [], t, fun d => if (cand_eq_dec d head) then [] else (p d), tail, e, h)).  
+ unfold LastParcel_transfer. exists (last (p head) []). exists t. exists p. 
+ exists (fun d => if (cand_eq_dec d head) then [] else (p d)). 
+ exists bl. exists tail. exists h. exists e. 
+ intuition.
+ exists tail. exists head.
+ intuition.
+ destruct (cand_eq_dec head head). reflexivity. contradict f. auto.
+ destruct (cand_eq_dec d head). contradiction H0. reflexivity. 
+ intros.
+ unfold LastParcel_transfer in H.
+ destruct H as [nba [t [p [np [bl [nbl [h [e H1]]]]]]]].
+ destruct H1 as [H11 [H12 [H13 H14]]].
+ exists nba. exists t. exists p. exists np. exists bl. exists nbl. exists h. exists e.
+ intuition. 
+ destruct H14 as [l [candid H141]]. 
+ destruct H141 as [H1411 H1412].
+ destruct H1411 as [H3 [H4 H5]].
+ rewrite H3. 
+ rewrite H4.
+ simpl.
+ omega.
+ destruct H14 as [tail [head [H141 H142]]].
+ assumption.
+Qed.
+
+Definition LastParcelTrans_STV := 
+                (mkSTV (quota)  
+                       (Union_InitStep) (UnionInitStep_IsLegitimate) 
+                       (Union_count) (UnionCount_IsLegitimate)
+                       (LastParcel_transfer) (LastParcel_Transfer_IsLegitimate)
+                       (Union_elect) (UnionElect_IsLegitimate)
+                       (Union_elim) (UnionElim_IsLegitimate)
+                       (Union_hwin) (UnionHwin_IsLegitimate)
+                       (Union_ewin) (UnionEwin_IsLegitimate)).
+
+Definition LastParcelTrans_Termination := 
+        Termination (initial (Filter bs)) init_stages_R_initial LastParcelTrans_STV.
+
+Definition Update_transVal (c: cand) (p: cand -> list (list ballot)) (t: cand -> Q) :=
+ let Sum_parcel := sum (last (p c) []) in
+  let r :=  (Qred ((Qred ((t c) - quota)) / Sum_parcel)) in
+    match (Qlt_le_dec 0 Sum_parcel) with
+       left _ => match (Qlt_le_dec r 1) with
+                    left _ => r
+                   |right _ => (1)%Q
+                 end
+       |right _ => (1)%Q
+    end.
+
+(* transfer value has changed so that only last parcel is to be transferred at a Manual_ACT rate*)
+(* note that only the last parcel is kept after being updated. The rest of the parcel is thrown out! *)
+Definition ManualACT_elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+ exists t p np (bl nbl: list cand) nh h (e ne: {l : list cand | length l <= st }),
+    prem = state ([], t, p, bl, e, h) /\ 
+    exists l,                                      
+     (l <> [] /\                                  
+     length l <= st - length (proj1_sig e) /\    
+     (forall c, In c l -> In c (proj1_sig h) /\ (hd nty t (c) >= quota)%Q) /\      
+     ordered (hd nty t) l /\ 
+     Leqe l (proj1_sig nh) (proj1_sig h) /\          
+     Leqe l (proj1_sig e) (proj1_sig ne) /\     
+     (forall c, In c l -> ((np c) = map (map (fun (b : ballot) => 
+         (fst b, (Qred (snd b * (Update_transVal c p (hd nty t))))%Q))) [(last (p c) [])])) /\  
+     (forall c, ~ In c l -> np (c) = p (c)) /\  
+     nbl = bl ++ l) /\                                 
+  conc = state ([], t, np, nbl, ne, nh).      
+
+Definition update_pile_ManualACT (p: cand -> list (list ballot)) (t: cand -> Q) (l: list cand) (q:Q) (c:cand):=   
+ if cand_in_dec c l 
+    then  
+       map (map (fun (b : ballot) => 
+         (fst b, (Qred (snd b * (Update_transVal c p t)))%Q))) [(last (p c) [])] 
+    else (p c).
+
+Lemma ManualACT_elect_IsLegitimate: Is_Legitimate_Elect ManualACT_elect.
+Proof.
+ intros.
+ unfold Is_Legitimate_Elect.
+ split.
+ intros.
+ unfold Union_elect.
+ specialize (constructing_electable_first).  
+ intro H1.
+ destruct X as [c [X1 X2]].
+ assert (Hyp: length (proj1_sig e) < st).
+ omega.
+ specialize (H1 e (hd nty t) h quota Hyp (proj2_sig h)).
+ destruct H1 as [listElected H11].
+ destruct H11 as [H111 [H112 [H113 [H114 H115]]]].
+ specialize (Removel_nodup listElected (proj1_sig h) (proj2_sig h)). intro NoDupH.
+ assert (Assum: length ((proj1_sig e) ++ listElected) <= st).
+ rewrite app_length.
+ omega.
+ exists (state ([], t, fun c => update_pile_ManualACT p (hd nty t) listElected quota c, bl ++ listElected, 
+ exist _ ((proj1_sig e) ++ listElected) Assum, exist _ (Removel listElected (proj1_sig h)) NoDupH)).
+ exists t. exists p. exists (fun x => update_pile_ManualACT p (hd nty t) listElected quota x).
+ exists bl. exists (bl ++ listElected). exists (exist _ (Removel listElected (proj1_sig h)) NoDupH).
+ exists h. exists e. exists (exist _ ((proj1_sig e) ++ listElected) Assum). 
+ split. auto.
+ exists listElected.
+ intuition.
+ assert (NonEmptyElected: length listElected = 0). 
+ rewrite H2.
+ simpl. reflexivity.
+ assert (VacantSeat: length (listElected) < st - (length (proj1_sig e))).
+ rewrite app_length in Assum.
+ rewrite NonEmptyElected in Assum.
+ omega.
+ specialize (H115 c). 
+ intuition.
+ rewrite H2 in H3.
+ inversion H3.
+ simpl.
+ unfold Leqe.
+ apply Permutation_App.
+ apply (nodup_permutation).
+ intros candid HypCand. 
+ specialize (H111 candid HypCand).
+ intuition.
+ assumption. 
+ apply (proj2_sig h).
+ simpl.
+ unfold Leqe.
+ apply Permutation_refl.
+ unfold update_pile_ManualACT.
+ destruct (cand_in_dec c0 listElected).
+ trivial.
+ contradict f. assumption.
+ unfold update_pile_ManualACT.
+ destruct (cand_in_dec c0 listElected).
+ contradict H2.
+ assumption.
+ auto.
+ intros.
+ unfold Union_elect in H.
+ destruct H as [t [p [np [bl [nbl [nh [h [e [ne H1]]]]]]]]].
+ exists t. exists p; exists np. exists bl. exists nbl. exists e. exists ne. exists nh. exists h. 
+ destruct H1 as [H11 H12].
+ destruct H12 as [l H121].
+ intuition.
+ unfold Leqe in H4.  
+ specialize (Permutation_length H4). intro Permut_length.
+ rewrite Permut_length.
+ rewrite  app_length.
+ specialize (list_nonempty_type cand l H1). intro.
+ destruct X as [c [l' HX]].
+ rewrite HX.
+ simpl. 
+ omega.
+ unfold Leqe in H5.
+ specialize (Permutation_length H5). intro.
+ rewrite H8.
+ rewrite app_length.
+ specialize (list_nonempty_type cand l H1). intro.
+ destruct X as [c [l' HX]]. 
+ rewrite HX.
+ simpl.
+ omega.
+Qed.
+
+Definition ManualACT_STV := 
+                (mkSTV (quota)  
+                       (Union_InitStep) (UnionInitStep_IsLegitimate) 
+                       (Union_count) (UnionCount_IsLegitimate)
+                       (LastParcel_transfer) (LastParcel_Transfer_IsLegitimate)
+                       (ManualACT_elect) (ManualACT_elect_IsLegitimate)
+                       (Union_elim) (UnionElim_IsLegitimate)
+                       (Union_hwin) (UnionHwin_IsLegitimate)
+                       (Union_ewin) (UnionEwin_IsLegitimate)).
+
+Definition ManualACT_Termination := 
+        Termination (initial (Filter bs)) init_stages_R_initial ManualACT_STV.
 
 End STV_Framework.
 
+(*
 Extraction Language Haskell.
+Extraction "Lib.hs" ManualACT_Termination. 
+*)
 
-Extraction "Lib.hs" Union_Termination.
+(*
+Extraction Language Haskell.
+Extraction "Lib.hs" LastParcelTrans_Termination.
+*)
+
+(*
+Extraction Language Haskell.
+Extraction "Lib.hs" ACTLH_Termination. 
+*)
+
+
+(* Extraction Language Haskell.
+Extraction "Lib.hs" Union_Termination. *)
 
   (* ****************************************************** *) 
  (* begining of the proof by first destructing on ba, old proof
