@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2017.8.23)  6 MAY 2018 20:57
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2017.8.23)  14 MAY 2018 16:33
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1118,48 +1118,130 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
  [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
-Underfull \hbox (badness 10000) in paragraph at lines 61--62
+Underfull \vbox (badness 10000) has occurred while \output is active []
+
+ [2]
+Underfull \vbox (badness 1152) has occurred while \output is active []
+
+ [3]
+
+LaTeX Font Warning: Font shape `OT1/cmss/m/it' in size <10> not available
+(Font)              Font shape `OT1/cmss/m/sl' tried instead on input line 116.
+
+
+[4]
+Underfull \hbox (badness 10000) in paragraph at lines 121--131
 
  []
 
-[2]
 
-LaTeX Font Warning: Font shape `OT1/cmss/m/it' in size <10> not available
-(Font)              Font shape `OT1/cmss/m/sl' tried instead on input line 86.
-
-[3]
-Overfull \hbox (0.95406pt too wide) in paragraph at lines 103--105
+Overfull \hbox (0.95406pt too wide) in paragraph at lines 133--135
 []\OT1/cmr/bx/n/10 (machine tran-si-tions). []\OT1/cmr/m/it/10 The set $\OMS/cm
 sy/m/n/10 T$ \OT1/cmr/m/it/10 con-sist-ing of the la-bels \OT1/cmr/bx/it/10 cou
 nt\OT1/cmr/m/it/10 ,
  []
 
-[4] [5] (./modularSTV.aux) ) 
+[5]
+
+LaTeX Font Warning: Font shape `OT1/cmss/m/it' in size <9> not available
+(Font)              Font shape `OT1/cmss/m/sl' tried instead on input line 153.
+
+
+[6] [7]
+Underfull \hbox (badness 10000) in paragraph at lines 223--248
+
+ []
+
+[8] [9]
+LaTeX Font Info:    Try loading font information for OT1+qcr on input line 270.
+
+ (/usr/share/texmf/tex/latex/tex-gyre/ot1qcr.fd
+File: ot1qcr.fd 2009/09/25 v1.2 font definition file for OT1/qcr
+)
+LaTeX Font Info:    Try loading font information for OMS+qcr on input line 283.
+
+LaTeX Font Info:    No file OMSqcr.fd. on input line 283.
+
+
+LaTeX Font Warning: Font shape `OMS/qcr/m/n' undefined
+(Font)              using `OMS/cmsy/m/n' instead
+(Font)              for symbol `textbraceleft' on input line 283.
+
+[10]
+Underfull \hbox (badness 10000) in paragraph at lines 307--318
+[]\OT1/qcr/m/n/9 Definition Elect[]Sanity[]Check (R:STV[]States -> STV[]States-
+> Prop)
+ []
+
+[11] [12]
+Underfull \hbox (badness 10000) in paragraph at lines 388--396
+
+ []
+
+
+Overfull \hbox (4.89061pt too wide) in paragraph at lines 403--413
+\OT1/qcr/m/n/9 np(c)= \OT1/cmss/m/n/9 map \OT1/cmr/m/n/9 (\OT1/cmss/m/n/9 fun \
+OT1/qcr/m/n/9 b => []\OT1/cmr/m/n/9 ) \OT1/qcr/m/n/9 (\OT1/cmss/m/n/9 last\OT1/
+qcr/m/n/9 (p c))
+ []
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 403--413
+
+ []
+
+[13]
+\myBox1=\box101
+\myScoreStart1=\dimen315
+\myCenter1=\dimen316
+\myScoreEnd1=\dimen317
+
+Overfull \hbox (84.77893pt too wide) in paragraph at lines 428--450
+[][] 
+ []
+
+[14] [15] (./modularSTV.aux)
+
+LaTeX Font Warning: Some font shapes were not available, defaults substituted.
+
+ ) 
 Here is how much of TeX's memory you used:
- 27215 strings out of 493304
- 648300 string characters out of 6139871
- 720597 words of memory out of 5000000
- 30164 multiletter control sequences out of 15000+600000
- 9934 words of font info for 38 fonts, out of 8000000 for 9000
+ 27316 strings out of 493304
+ 649563 string characters out of 6139871
+ 721715 words of memory out of 5000000
+ 30248 multiletter control sequences out of 15000+600000
+ 15028 words of font info for 57 fonts, out of 8000000 for 9000
  957 hyphenation exceptions out of 8191
- 56i,6n,81p,10423b,609s stack positions out of 5000i,500n,10000p,200000b,80000s
-</usr/share/texlive/texmf-dist/fonts/type1/public/a
-msfonts/cm/cmbx10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfont
-s/cm/cmbx12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/c
-mbx9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbxti10
-.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><
-/usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></usr/sh
-are/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/share/texl
-ive/texmf-dist/fonts/type1/public/amsfonts/cm/cmss10.pfb></usr/share/texlive/te
-xmf-dist/fonts/type1/public/amsfonts/cm/cmssi10.pfb></usr/share/texlive/texmf-d
-ist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fo
-nts/type1/public/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/typ
-e1/public/amsfonts/cm/cmti10.pfb></usr/share/texlive/texmf-dist/fonts/type1/pub
-lic/amsfonts/symbols/msbm10.pfb>
-Output written on modularSTV.pdf (5 pages, 165562 bytes).
+ 56i,10n,81p,10423b,609s stack positions out of 5000i,500n,10000p,200000b,80000s
+{/usr/share/texmf/fonts/enc/dvips/tex-gyre/q-rmm.enc}</usr/share/texlive/texm
+f-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></usr/share/texlive/texmf-dist
+/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/share/texlive/texmf-dist/fonts
+/type1/public/amsfonts/cm/cmbx9.pfb></usr/share/texlive/texmf-dist/fonts/type1/
+public/amsfonts/cm/cmbxti10.pfb></usr/share/texlive/texmf-dist/fonts/type1/publ
+ic/amsfonts/cmextra/cmex9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public
+/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfo
+nts/cm/cmmi6.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/
+cmmi9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.p
+fb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5.pfb></usr
+/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr6.pfb></usr/share/t
+exlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/share/texlive/t
+exmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/share/texlive/texmf-dis
+t/fonts/type1/public/amsfonts/cm/cmss10.pfb></usr/share/texlive/texmf-dist/font
+s/type1/public/amsfonts/cm/cmss8.pfb></usr/share/texlive/texmf-dist/fonts/type1
+/public/amsfonts/cm/cmss9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public
+/amsfonts/cm/cmssi10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsf
+onts/cm/cmssi9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/c
+m/cmsy10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy
+6.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb><
+/usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/sh
+are/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/share/te
+xlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti9.pfb></usr/share/texlive/t
+exmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/share/texmf/font
+s/type1/public/tex-gyre/qcrr.pfb>
+Output written on modularSTV.pdf (15 pages, 340083 bytes).
 PDF statistics:
- 75 PDF objects out of 1000 (max. 8388607)
- 54 compressed objects within 1 object stream
+ 162 PDF objects out of 1000 (max. 8388607)
+ 117 compressed objects within 2 object streams
  0 named destinations out of 1000 (max. 500000)
  13 words of extra memory for PDF output out of 10000 (max. 10000000)
 
