@@ -33,7 +33,7 @@ different instances of the Single Transferable Vote (STV) counting
 scheme in a uniform way. The framework requires that each instance
 defines the precise mechanism of counting and transferring ballots,
 electing and eliminating candidates. From formal proofs of basic
-sanity condition for each mechanism, we then synthesise 
+sanity condition for each mechanism inside the Coq theorem prover, we then synthesise
 code that implements the given scheme in a provably correct way and
 produces a universally verifiable certificate of the count. We have
 applied this to various variations of STV, including several  used in Australian
@@ -42,28 +42,132 @@ approach by means of real-world case studies.
 \end{abstract}
 
 \section{Introduction}
- Single Transferable Voting is a family of proportional representative vote counting schemes where voters express their preferences for competing candidates by ordering them in ballots. In many countries, such as Australia and Ireland, some variants of STV are adapted by government and private sectors as the counting scheme for electing parliament and senate members, board of trustees, and community representatives. There are noticeable differences among these versions of STV. However, most of them share a common underlying structure which pins down the central characteristics of STV algorithms.
+ Single Transferable Vote (STV) is a family of 
+ vote counting schemes where voters express their 
+ preferences for competing candidates by ranking them on a ballot
+ paper. STV is used, directly or indirectly, in many commonwealth
+ countries including Ireland, Malta, India, Nepal, New Zealand and
+ Australia, but for example also to elect moderators in the
+ StackExchange discussion forum \cite{StackExchange:2018:ME} or the
+ board of trustees of the John Muir trust \cite{Trust:2018:AT}. 
+
+ There are noticeable
+ differences among these versions of STV. However, most of them
+ share a common underlying structure which pins down the central
+ characteristics of STV algorithms.
  
  
-When one analyses variants of STV protocols, they recognise some familiar pieces of information. They all have competing candidates, a quota of election, and vacancies. Moreover, they all specify the protocol in a language which assumes or implies that counting advances step by step in a discrete manner. The steps are taken by invariably appearing names such as \emph{eliminate} or \emph{transfer}. These names act as transtions from one step into another to update the current step, for example by removing someone from the counting. Furthermore, there are constraints described in these protocols that dictate when a tally officer is allowed to take which one of the transitions.  Again, similarities strike us in that some of the conditions for applying these transitions constantly   emerge. For example, all of STV protocols state that when we have come to fill all of the vacancies, the counting process must terminate by declaring winners of the election. These conditions operate in two levels. First they assign a particular function to each transition act. These expectations required by the protocols from each transition, serves as the meaning of performing that individual act. Second, they impose an algorithmic skeleton in how transitions collectively behave, which consistently appears in most of STV schemes.
+When one analyses variants of STV protocols, they recognise some
+familiar pieces of information. They all have competing candidates,
+a quota of election, and vacancies. Moreover, they all specify the
+protocol in a language which assumes or implies that counting
+advances step by step in a discrete manner. The steps are taken by
+invariably appearing names such as \emph{eliminate} or
+\emph{transfer}. These names act as transtions from one step into
+another to update the current step, for example by removing someone
+from the counting. Furthermore, there are constraints described in
+these protocols that dictate when a tally officer is allowed to take
+which one of the transitions.  Again, similarities strike us in that
+some of the conditions for applying these transitions constantly
+emerge. For example, all of STV protocols state that when we have
+come to fill all of the vacancies, the counting process must
+terminate by declaring winners of the election. These conditions
+operate in two levels. First they assign a particular function to
+each transition act. These expectations required by the protocols
+from each transition, serves as the meaning of performing that
+individual act. Second, they impose an algorithmic skeleton in how
+transitions collectively behave, which consistently appears in most
+of STV schemes.
 
 
-We abstract the above data and algorithmic structure away to obtain a minimal STV. In particular, we formally understand each single discrete steps of counting mentioned above as a mathematical object which comprises some data. Based on the kind of data that such an object encapsulates, we codify them into three sets. The first set groups the initial states of the counting. They essentially hold the original ballots cast to be counted. The second set consists of intermediate stages of the process. Each intermediate state carries seven pieces of information; the list of uncounted ballots left to be dealt with currently, the tally amount of each candidate, the pile of ballots which had been counted in their favour, and four lists which specify the list of elected candidates whose votes await being transferred, the list of eliminated candidates whose votes is to be transferred, and the list of elected and continuing candidates. Basically, they keep record of the computation up to the current stage. The last class of states are the final ones. They inform us of the end result of  tallying.
+We abstract the above data and algorithmic structure away to obtain
+a minimal STV. In particular, we formally understand each single
+discrete steps of counting mentioned above as a mathematical object
+which comprises some data. Based on the kind of data that such an
+object encapsulates, we codify them into three sets. The first set
+groups the initial states of the counting. They essentially hold the
+original ballots cast to be counted. The second set consists of
+intermediate stages of the process. Each intermediate state carries
+seven pieces of information; the list of uncounted ballots left to
+be dealt with currently, the tally amount of each candidate, the
+pile of ballots which had been counted in their favour, and four
+lists which specify the list of elected candidates whose votes await
+being transferred, the list of eliminated candidates whose votes is
+to be transferred, and the list of elected and continuing
+candidates. Basically, they keep record of the computation up to the
+current stage. The last class of states are the final ones. They
+inform us of the end result of  tallying.
 
 
-We realise transitions, which correspond to acts of counting, eliminating, transferring, electing, and declaring winners committed by tally officers, as mathematical functions which take an input state of the computation and output another state. These functions are defined generically, which means they are void of content. Such formalisation enables us to cover as much STV protocols as possible. However, we bless them with some meaning \emph{sanity checks}. In essence, sanity checks are the formal counterpart of the  minimal, constantly appearing conditions explained above which instruct the tally officer which transition to apply and when.  
+We realise transitions, which correspond to acts of counting,
+eliminating, transferring, electing, and declaring winners committed
+by tally officers, as mathematical functions which take an input
+state of the computation and output another state. These functions
+are defined generically, which means they are void of content. Such
+formalisation enables us to cover as much STV protocols as possible.
+However, we bless them with some meaning \emph{sanity checks}. In
+essence, sanity checks are the formal counterpart of the  minimal,
+constantly appearing conditions explained above which instruct the
+tally officer which transition to apply and when.  
 
 
-The formally specified states of the computation, the transition labels and the applicability constraints imposed on them by sanity checks, constitute the minimal, generic, STV algorithm. We establish three  main properties about this generic version of STV. The first one asserts that each application of any of the generic transition of STV which satisfies constraints of sanity checks, reduces a complexity measure. The second property ensures us that at any non-final state of the counting, at least one of the generic transitions is applicable provided that they all satisfy the sanity check requirements. The content of this theorem, embodies the algorithmic skeleton explained above. It determines how the transitions of the generic STV, and instances of STV as well,  collectively behave. Finally, we prove a termination theorem for this minimal STV algorithm.
+The formally specified states of the computation, the transition
+labels and the applicability constraints imposed on them by sanity
+checks, constitute the minimal, generic, STV algorithm. We establish
+three  main properties about this generic version of STV. The first
+one asserts that each application of any of the generic transition
+of STV which satisfies constraints of sanity checks, reduces a
+complexity measure. The second property ensures us that at any
+non-final state of the counting, at least one of the generic
+transitions is applicable provided that they all satisfy the sanity
+check requirements. The content of this theorem, embodies the
+algorithmic skeleton explained above. It determines how the
+transitions of the generic STV, and instances of STV as well,
+collectively behave. Finally, we prove a termination theorem for
+this minimal STV algorithm.
 
 
- All of the above steps, are formalised in the base of our framework. On the other hand, however, STV protocols have distinctive features that scape being pinned down by sanity checks, which are merely common properties among STV cases. We formally accommodate concrete instances of STV used in real elections in separate modules.  This happens in four phases.  First we instantiate each generic, fleshless transition with its legal specification according to the instance of the STV being formalised. More conditions for when and how a transition may apply are added in this step. Therefore, we come to honour individualistic side of each STV. Then we discharge proof obligations of sanity checks for each of the instantiated transitions. By satisfying sanity checks, we are able to obtain for each STV instance, the same computational and mathematical properties proved earlier for the generic version. Also we verify functions used for computation with the instantiated transition at this same step. Hence, we ascertain that we compute in accordance with the generic STV skeleton and that every instance of such computation proceeds correctly.
+ All of the above steps, are formalised in the base of our
+ framework. On the other hand, however, STV protocols have
+ distinctive features that scape being pinned down by sanity checks,
+ which are merely common properties among STV cases. We formally
+ accommodate concrete instances of STV used in real elections in
+ separate modules.  This happens in four phases.  First we
+ instantiate each generic, fleshless transition with its legal
+ specification according to the instance of the STV being
+ formalised. More conditions for when and how a transition may apply
+ are added in this step. Therefore, we come to honour
+ individualistic side of each STV. Then we discharge proof
+ obligations of sanity checks for each of the instantiated
+ transitions. By satisfying sanity checks, we are able to obtain for
+ each STV instance, the same computational and mathematical
+ properties proved earlier for the generic version. Also we verify
+ functions used for computation with the instantiated transition at
+ this same step. Hence, we ascertain that we compute in accordance
+ with the generic STV skeleton and that every instance of such
+ computation proceeds correctly.
  
  
-Finally, by the automatic programme extractions of Coq, we extract execute executables pertinent to each modules. The extraction mechanism provides us with a satisfactory level of verification that the executable behaves in agreement with its formalised counterpart in Coq. Moreover, the executables are certifying programmes which produce an visualised trace of computation upon each execution. The certificate is checkable \emph{by general member of the public} for correctness independent of the means employed for producing it. Therefore, we come to provide the public with tools for personally verifying the tallying count. Consequently, our approach respects and meets the count-as-cast subproperty of the universal verifiability quality. Finally, our experimental tests with real elections demonstrate feasibility of our approach for  real world application so that our work extends beyond mere academic fruitfulness. 
+Finally, by the automatic programme extractions of Coq, we extract
+execute executables pertinent to each modules. The extraction
+mechanism provides us with a satisfactory level of verification that
+the executable behaves in agreement with its formalised counterpart
+in Coq. Moreover, the executables are certifying programmes which
+produce an visualised trace of computation upon each execution. The
+certificate is checkable \emph{by general member of the public} for
+correctness independent of the means employed for producing it.
+Therefore, we come to provide the public with tools for personally
+verifying the tallying count. Consequently, our approach respects
+and meets the count-as-cast subproperty of the universal
+verifiability quality. Finally, our experimental tests with real
+elections demonstrate feasibility of our approach for  real world
+application so that our work extends beyond mere academic
+fruitfulness. 
  
 
-% As it stands in correspondence with the actual computation carried out by the executable, correctness of the certificate ensures flawlessness of the executable. 
+% As it stands in correspondence with the actual computation carried
+% out by the executable, correctness of the certificate ensures
+% flawlessness of the executable. 
 
 
 
