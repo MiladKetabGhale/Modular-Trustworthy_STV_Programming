@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2017.8.23)  14 MAY 2018 16:33
+This is pdfTeX, Version 3.1415926-2.5-1.40.14 (TeX Live 2013/Debian) (format=pdflatex 2017.8.23)  15 MAY 2018 14:23
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1200,16 +1200,23 @@ Overfull \hbox (84.77893pt too wide) in paragraph at lines 428--450
 [][] 
  []
 
-[14] [15] (./modularSTV.aux)
+[14]
+
+LaTeX Warning: Citation `DBLP:journals/jar/AlkassarBMR14' on page 15 undefined 
+on input line 464.
+
+[15]
+No file modularSTV.bbl.
+[16] (./modularSTV.aux)
 
 LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
  ) 
 Here is how much of TeX's memory you used:
- 27316 strings out of 493304
- 649563 string characters out of 6139871
+ 27318 strings out of 493304
+ 649600 string characters out of 6139871
  721715 words of memory out of 5000000
- 30248 multiletter control sequences out of 15000+600000
+ 30249 multiletter control sequences out of 15000+600000
  15028 words of font info for 57 fonts, out of 8000000 for 9000
  957 hyphenation exceptions out of 8191
  56i,10n,81p,10423b,609s stack positions out of 5000i,500n,10000p,200000b,80000s
@@ -1238,10 +1245,10 @@ are/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/share/te
 xlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmti9.pfb></usr/share/texlive/t
 exmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb></usr/share/texmf/font
 s/type1/public/tex-gyre/qcrr.pfb>
-Output written on modularSTV.pdf (15 pages, 340083 bytes).
+Output written on modularSTV.pdf (16 pages, 343636 bytes).
 PDF statistics:
- 162 PDF objects out of 1000 (max. 8388607)
- 117 compressed objects within 2 object streams
+ 165 PDF objects out of 1000 (max. 8388607)
+ 119 compressed objects within 2 object streams
  0 named destinations out of 1000 (max. 500000)
  13 words of extra memory for PDF output out of 10000 (max. 10000000)
 

@@ -473,7 +473,7 @@ Checkability of the visualised certificate by \emph{any scrutineers} witnesses t
  Figure~\ref{fig;figure5} illustrates an example of a concrete certificate, where candidates a, b, and c are competing over one seat. We only shortly explain it, as we have detailed concrete certificates elsewhere\cite{}.  We use exact fractions for computations to avoids issues explained in literature\cite{} about rounding numbers. Every intermediate line depicts six component each of which corresponds to an abstract data representation of the intermediate states of the abstract  machine. They are separate by semi-colon symbol.  The first one is the list of uncounted ballots. The Second one is tallies of candidates. The third part shows piles of each candidate. The last three are the backlog, list of elected, and list of continuing candidates. 
  %The list of initial ballots is placed at the top. The step start decides on formal ballots and the quota of this sample election. Then we count the first preferences. the candidate a and b receive one vote each and c obtains two. No one is over the quota, so we eliminate the weakest candidate by removing him from the list of continuing candidates and placing him in the second component of backlog. Next step, we transfer his votes by putting them into the list of uncounted ballots. Afterwards, count applies. Since c reached the quota, he is elected. As there was only one vacancy and we have filled it, the rule elect win applies to declare the final result.
  
- \noindent\textbf{Experiments.} We have evaluated efficiency of our approach by testing the extracted module for the lower house ACT STV on some real elections held in 2006 and 2008. 
+ \noindent\textbf{Experiments.} We have evaluated efficiency of our approach by testing the extracted module for the lower house ACT STV on some real elections held in 2006 and 2008. \cite{DBLP:journals/jar/AlkassarBMR14}
  \begin{small}
 \begin{figure}[b]
 \centering
@@ -494,7 +494,17 @@ Molonglo&$91534$&$7$&$27$&&213.7&2012\\
 \label{ref;figure6}
 \end{figure}
 \end{small}  
-%\section{A Technical Discussion}
-%\section{Conclusion}
+\section{A Technical Discussion}
+Here we introduce a framework for formalisation, verification, and provably correct computation with various STV algorithms. Our software is the outcome of macro level design decisions which we made prior to the implementation. In the architecture, we have been attentive to  balancing out between different standards for designing a framework. As a result, the final product surpasses the earlier attempt  made in formalisation of STV algorithms\cite{}.
 
+Our previous work emphasises excessively on the data structure of STV algorithms and pays little attention to the algorithmic dimension. In short, it first formalises a  generic  specification of STV scheme, where the algorithm is encoded in terms of types to be instantiated later. The highly generically realised STV is bereft of algorithmic substance to the point that we do not perceive any specificity of STV. Consequently, each time one aims at instantiating the generic types with parameters to actually formalise an instance of STV, they have go through countless  duplication of data and algorithmic structure simply to  establish an instantiated version of the generic application and termination theorems. 
+
+
+Here we have distanced from generic programming and given weight to the algorithmic character of STV. The essence of STV algorithms is encoded in sanity checks which operate on any instance of STV. Any STV which satisfies sanity checks, enjoys rule applicability and termination property established in theorems~\ref{app} and \ref{termination}. Therefore, for an instance of STV to be verified, we simply need to discharge the sanity checks rather than duplicating the whole proof process again. Therefore, the checks offer an abstraction on the algorithmic side which helps us avoid duplication of encoding. Moreover, unlike the previous work, users do not need to know how the application theorem and termination have been proven in order to show termination of the particular instance into which they are interested.  Thus we hide information which are not necessary for any user to be bothered with for using the software. Additionally, separation of encoding into modules besides promoting the information hiding, usability and abstraction further, makes our product extensible for future applications. Any user interested in correct computation with a preferred STV, would enjoy calling the base of the framework in and draw upon the existing functionalities to achieve the goal.
+
+The above choice is worthwhile, as the base of the framework which is dealt with once and for all comprises roughly 25000 lines of encoding. Each module already formalised is less than 500 lines. Therefore, an interested user has to just carry out formalisation and discharging sanity checks for about 500 lines to acquire a verified executable implementation of their favourite STV. On the other hand, accomplishing the same goal by using the previous platform, demands  25000 lines of encoding, along with overcoming numerous technicalities.   
+\section{Conclusion}
+We have designed a framework for modular formalisation, verification of, and provably correct computation with STV algorithms. The product hosts formalised and verified encoding of key characteristics of STV schemes in a base. 
+\bibliographystyle{splncs03}
+\bibliography{paper}
 \end{document}
