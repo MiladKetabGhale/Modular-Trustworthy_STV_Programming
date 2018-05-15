@@ -1,0 +1,115 @@
+\begin{thebibliography}{10}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{URL }
+
+\bibitem{DBLP:journals/jar/AlkassarBMR14}
+Alkassar, E., B{\"{o}}hme, S., Mehlhorn, K., Rizkallah, C.: A framework for the
+  verification of certifying computations. J. Autom. Reasoning  52(3),
+  241--273 (2014)
+
+\bibitem{DBLP:conf/stoc/BlumK89}
+Blum, M., Kannan, S.: Designing programs that check their work. In: Proceedings
+  of the 21st Annual {ACM} Symposium on Theory of Computing, May 14-17, 1989,
+  Seattle, Washigton, {USA}. pp. 86--97 (1989)
+
+\bibitem{Brooks:2017:NCE}
+Brooks, L., Griffits, A.: Nsw council elections: Computer 'guesstimate' might
+  have ignored your vote. ABC News  (9 2017), available online at
+  http://www.abc.net.au/news/2017-09-14/computer-algorithms-may-sway-local-council-elections/8944186
+
+\bibitem{Conway:2017:ANS}
+Conway, A., Blom, M., Naish, L., Teague, V.: An analysis of new south wales
+  electronic vote counting. In: Proc. ACSW 2017. pp. 24:1--24:5 (2017)
+
+\bibitem{DBLP:conf/post/CortierEKMW15}
+Cortier, V., Eigner, F., Kremer, S., Maffei, M., Wiedling, C.: Type-based
+  verification of electronic voting protocols. In: Principles of Security and
+  Trust - 4th International Conference, {POST} 2015, Held as Part of the
+  European Joint Conferences on Theory and Practice of Software, {ETAPS} 2015,
+  London, UK, April 11-18, 2015, Proceedings. pp. 303--323 (2015)
+
+\bibitem{DBLP:conf/esorics/CortierGGI14}
+Cortier, V., Galindo, D., Glondu, S., Izabach{\`{e}}ne, M.: Election
+  verifiability for helios under weaker trust assumptions. In: Computer
+  Security - {ESORICS} 2014 - 19th European Symposium on Research in Computer
+  Security, Wroclaw, Poland, September 7-11, 2014. Proceedings, Part {II}. pp.
+  327--344 (2014)
+
+\bibitem{DBLP:journals/iacr/CortierGKMT16}
+Cortier, V., Galindo, D., K{\"{u}}sters, R., M{\"{u}}ller, J., Truderung, T.:
+  Verifiability notions for e-voting protocols. {IACR} Cryptology ePrint
+  Archive  2016,  287 (2016)
+
+\bibitem{DBLP:conf/icse/DahlweidMSTS09}
+Dahlweid, M., Moskal, M., Santen, T., Tobies, S., Schulte, W.: {VCC:}
+  contract-based modular verification of concurrent {C}. In: 31st International
+  Conference on Software Engineering, {ICSE} 2009, May 16-24, 2009, Vancouver,
+  Canada, Companion Volume. pp. 429--430 (2009)
+
+\bibitem{DBLP:conf/voteid/GhaleGP17}
+Ghale, M.K., Gor{\'{e}}, R., Pattinson, D.: A formally verified single
+  transferable voting scheme with fractional values. In: Electronic Voting -
+  Second International Joint Conference, E-Vote-ID 2017, Bregenz, Austria. pp.
+  163--182 (2017)
+
+\bibitem{DBLP:conf/itp/GreenawayAK12}
+Greenaway, D., Andronick, J., Klein, G.: Bridging the gap: Automatic verified
+  abstraction of {C}. In: Interactive Theorem Proving - Third International
+  Conference, {ITP} 2012, Princeton, NJ, USA. pp. 99--115 (2012)
+
+\bibitem{DBLP:conf/esop/GueneauMKN17}
+Gu{\'{e}}neau, A., Myreen, M.O., Kumar, R., Norrish, M.: Verified
+  characteristic formulae for cakeml. In: Programming Languages and Systems -
+  26th European Symposium on Programming, {ESOP} 2017, Held as Part of the
+  European Joint Conferences on Theory and Practice of Software, {ETAPS} 2017,
+  Uppsala, Sweden. pp. 584--610 (2017)
+
+\bibitem{DBLP:conf/wote/JuelsCJ10}
+Juels, A., Catalano, D., Jakobsson, M.: Coercion-resistant electronic
+  elections. In: Towards Trustworthy Elections, New Directions in Electronic
+  Voting. pp. 37--63 (2010)
+
+\bibitem{Kremer:2010:EVE}
+Kremer, S., Ryan, M., Smyth, B.: Election verifiability in electronic voting
+  protocols. In: Gritzalis, D., Preneel, B., Theoharidou, M. (eds.) Proc.
+  {ESORICS} 2010. Lecture Notes in Computer Science, vol. 6345, pp. 389--404.
+  Springer (2010)
+
+\bibitem{DBLP:conf/esorics/KremerRS10}
+Kremer, S., Ryan, M., Smyth, B.: Election verifiability in electronic voting
+  protocols. In: Computer Security - {ESORICS} 2010, 15th European Symposium on
+  Research in Computer Security, Athens, Greece. pp. 389--404 (2010)
+
+\bibitem{DBLP:conf/ccs/KustersTV10}
+K{\"{u}}sters, R., Truderung, T., Vogt, A.: Accountability: definition and
+  relationship to verifiability. In: Proceedings of the 17th {ACM} Conference
+  on Computer and Communications Security, {CCS} 2010, Chicago, Illinois, USA,
+  October 4-8, 2010. pp. 526--535 (2010)
+
+\bibitem{DBLP:journals/csr/McConnellMNS11}
+McConnell, R.M., Mehlhorn, K., N{\"{a}}her, S., Schweitzer, P.: Certifying
+  algorithms. Computer Science Review  5(2),  119--161 (2011)
+
+\bibitem{JFP14}
+Myreen, M.O., Owens, S.: Proof-producing translation of higher-order logic into
+  pure and stateful {ML}. Journal of Functional Programming  24(2-3),  284--315
+  (May 2014)
+
+\bibitem{DBLP:conf/nfm/NoschinskiRM14}
+Noschinski, L., Rizkallah, C., Mehlhorn, K.: Verification of certifying
+  computations through autocorres and simpl. In: {NASA} Formal Methods - 6th
+  International Symposium, {NFM} 2014, Houston, TX, USA. pp. 46--61 (2014)
+
+\bibitem{DBLP:conf/itp/PattinsonT17}
+Pattinson, D., Tiwari, M.: Schulze voting as evidence carrying computation. In:
+  Interactive Theorem Proving - 8th International Conference, {ITP} 2017,
+  Bras{\'{\i}}lia, Brazil. pp. 410--426 (2017)
+
+\bibitem{DBLP:conf/icfp/TanMKFON16}
+Tan, Y.K., Myreen, M.O., Kumar, R., Fox, A.C.J., Owens, S., Norrish, M.: A new
+  verified compiler backend for {CakeML}. In: Garrigue, J., Keller, G., Sumii,
+  E. (eds.) Proceedings of the 21st {ACM} {SIGPLAN} International Conference on
+  Functional Programming, {ICFP} 2016, Nara, Japan, September 18-22, 2016. pp.
+  60--73. {ACM} (2016), \url{http://doi.acm.org/10.1145/2951913.2951924}
+
+\end{thebibliography}
