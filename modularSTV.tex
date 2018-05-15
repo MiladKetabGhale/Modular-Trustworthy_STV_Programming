@@ -19,37 +19,28 @@
 %\usepackage{caption}
 %\usepackage{eeesubcaption}
 \title{Modular Formalisation and Verification of \\STV Algorithms}
-\author{Milad K. Ghale 
-\hspace*{0.5cm} Dirk Pattinson}
-\institute{Research School of Computer Science, ANU, Canberra}
+\author{} % double blind
+%\author{Milad K. Ghale 
+%\hspace*{0.5cm} Dirk Pattinson}
+%\institute{Research School of Computer Science, ANU, Canberra}
 \begin{document}
 \maketitle
 \pagestyle{plain}
 \thispagestyle{empty}
 \begin{abstract}
-We introduce a modular framework that captures a large number of
-existing instances of the Single Transferable Vote (STV) counting
-scheme in a uniform way. 
-verification of some properties for various Single Transferable
-Voting (STV) algorithms.  These algorithms, although different from
-one another in some ways, have key properties in common which make
-them STV instances. By abstracting away common features of
-particular STV schemes, we obtain minimum requirements to accept a
-given, arbitrary scheme as a legitimate STV instance. We formally
-prove that any STV scheme which meets the  expectations of the above
-conditions satisfies some mathematical properties, such as
-termination. We demonstrate extensibility and concision of our
-framework by modular formalisation of a divergent range of STV
-algorithms in the theorem prover Coq. Then, by the built-in
-mechanisms of Coq, for each of the modules, we extract a certifying
-executable programme into the Haskell programming language. The
-certificate produced upon each execution, is a visualisation of the
-trace of the computation carried out to obtain an end result for an
-election instance. It provides us with an independently checkable
-proof of tallying correctness to establish count-as-recorded
-subproperty of the universal verifiability quality. Finally we show
-effectiveness of our approach by evaluating the executables on some
-real-size elections.  \end{abstract}
+We introduce a formal, modular framework that captures a large number of
+different instances of the Single Transferable Vote (STV) counting
+scheme in a uniform way. The framework requires that each instance
+defines the precise mechanism of counting and transferring ballots,
+electing and eliminating candidates. From formal proofs of basic
+sanity condition for each mechanism, we then synthesise 
+code that implements the given scheme in a provably correct way and
+produces a universally verifiable certificate of the count. We have
+applied this to various variations of STV, including several  used in Australian
+parliamentary elections and demonstrate the feasibility of our
+approach by means of real-world case studies.
+\end{abstract}
+
 \section{Introduction}
  Single Transferable Voting is a family of proportional representative vote counting schemes where voters express their preferences for competing candidates by ordering them in ballots. In many countries, such as Australia and Ireland, some variants of STV are adapted by government and private sectors as the counting scheme for electing parliament and senate members, board of trustees, and community representatives. There are noticeable differences among these versions of STV. However, most of them share a common underlying structure which pins down the central characteristics of STV algorithms.
  
