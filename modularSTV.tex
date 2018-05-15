@@ -272,7 +272,7 @@ STV protocols are composed of clauses which primarily textually describe the exp
 
 On the other hand, there are conditions that appear invariably among different STV schemes. These conditions, each of which correspond to a transition label, comprise the small-step semantics for the generic STV machine. They are also used to check if a given arbitrary STV can legitimately be categorised as an STV instance. We obtain the conditions by singling out the key invariant properties existing in each STV scheme and name them \emph{sanity checks}. The checks are formed by conjunction of the reducibility and local rule applicability properties.
 \paragraph{Reducibility.} 
-A careful examination of STV protocols illustrates that each rule application at least reduces the length of one the following four objects: the list of continuing candidates, the length of pile of the most recent eliminated candidate,  the backlog, or the list of uncounted ballots. The astute observer quickly grasps that by the correct choice of ordering among the above quantities, a complexity measure can be imposed on the set of machine states in such a way that each rule application reduces the measure. This measure persists to apply and function across various STV algorithms and to each transition label.     
+A careful examination of STV protocols illustrates that each rule application at least reduces the length of one the following four objects: the list of continuing candidates, the length of all of the ballots in the pile of the most recent eliminated candidate,  the backlog, or the list of uncounted ballots. The astute observer quickly grasps that by the correct choice of ordering among the above quantities, a complexity measure can be imposed on the set of machine states in such a way that each rule application reduces the measure. This measure persists to apply and function across various STV algorithms and to each transition label.     
 \paragraph{Local Rule Applicability.} In order to legally correctly apply a counting rule, the protocol declares some restrictions to be met first. Many of the constraints depend on the particular protocol, however some of them consistently come to attention. For example, all of STV algorithms require three properties to hold in order for elimination rule to apply: there must be empty seats to fill, there must not be any surplus votes awaiting transfer, and no candidate should have reached or exceeded the quota. Each one of the counting rules is constrained to their distinct conditions that constantly apply, regardless of the specifics of the STV protocol invoked.
 
 
@@ -280,10 +280,10 @@ To formulate the sanity checks for each transition step, we first  define a lexi
 \times\mathbb{N}$ and impose it on non-final states of the generic machine.   
 \begin{definition}
 Let $\{s: \mathcal{S} |$ $s$ not final$\}$ be the set of non-final machine states. 
-Then \begin{small}\textsf{Measure} (\textsf{initial} $ba$) = (1,0,0,0,0)\end{small}. Suppose for a given backlog $bl$, $(l1,l2)$ equals to $bl$, for some candidate lists $l1$ and $l2$. Then   
+Then \begin{small}\textsf{Measure} (\textsf{initial} $ba$) = (1,0,0,0,0)\end{small}. Suppose $bl$ $=$ $(l_{1},l_{2})$, for some lists $l_{1}$ and $l_{2}$, and for a given candidate $c$, \textsf{flat} (p c) $=$ $l_{c}$. Then   
 \begin{small}
 \begin{center}
- \textsf{Measure} (\textsf{state} ($ba,t,p,bl,e,h$)) = (0, \textsf{length} $h$, $\sum_{c\in l2}^{}$ \textsf{length} $(p$ $c)$,\textsf{length} $bl$,\textsf{length}  $ba$).
+ \textsf{Measure} (\textsf{state} ($ba,t,p,bl,e,h$)) = (0, \textsf{length} $h$, $\sum_{d\in l_{2}}^{}$ \textsf{length} $l_{c}$,\textsf{length} $l_{1}$,\textsf{length}  $ba$).
 \end{center}
 \end{small}
 \end{definition}
