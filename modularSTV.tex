@@ -473,7 +473,8 @@ Checkability of the visualised certificate by \emph{any scrutineers} witnesses t
  Figure~\ref{fig;figure5} illustrates an example of a concrete certificate, where candidates a, b, and c are competing over one seat. We only shortly explain it, as we have detailed concrete certificates elsewhere\cite{}.  We use exact fractions for computations to avoids issues explained in literature~\cite{DBLP:conf/voteid/GoreL16} about rounding numbers. Every intermediate line depicts six component each of which corresponds to an abstract data representation of the intermediate states of the abstract  machine. They are separate by semi-colon symbol.  The first one is the list of uncounted ballots. The Second one is tallies of candidates. The third part shows piles of each candidate. The last three are the backlog, list of elected, and list of continuing candidates. 
  %The list of initial ballots is placed at the top. The step start decides on formal ballots and the quota of this sample election. Then we count the first preferences. the candidate a and b receive one vote each and c obtains two. No one is over the quota, so we eliminate the weakest candidate by removing him from the list of continuing candidates and placing him in the second component of backlog. Next step, we transfer his votes by putting them into the list of uncounted ballots. Afterwards, count applies. Since c reached the quota, he is elected. As there was only one vacancy and we have filled it, the rule elect win applies to declare the final result.
  
- \noindent\textbf{Experiments.} We have evaluated efficiency of our approach by testing the extracted module for the lower house ACT STV on some real elections held in 2006 and 2008. 
+ 
+ We have evaluated efficiency of our approach by testing the extracted module for the lower house ACT STV on some real elections held in 2006 and 2008 (figure~\ref{ref;figure6}). Molonglo electorate of ACT is the biggest lower house electorate in Australia, both in terms of the number of candidates who are elected and the number of voters in the district. The extracted programme computes the result in just 22 minutes.  
  \begin{small}
 \begin{figure}[b]
 \centering
@@ -482,12 +483,12 @@ Checkability of the visualised certificate by \emph{any scrutineers} witnesses t
 \hline
 electoral & ballots& vacancies& candidates& time (sec)& certificate size (MB)&year\\
 \hline
-Brindabella &$63334$&$5$&$19$&&84.0&2008\\
-Ginninderra &$60049$&$5$&$27$&&124.8&2008\\
-Molonglo &$88266$&$7$&$40$&&324.0&2008\\
-Brindabella&$63562$&$5$&$20$&&95.8&2012\\
-Ginninderra&$66076$&$5$&$28$&&131.5&2012\\
-Molonglo&$91534$&$7$&$27$&&213.7&2012\\
+Brindabella &$63334$&$5$&$19$&$124$&80.6&2008\\
+Ginninderra &$60049$&$5$&$27$&$336$&128.9&2008\\
+Molonglo &$88266$&$7$&$40$&$1345$&336.1&2008\\
+Brindabella&$63562$&$5$&$20$&$269$&93.4&2012\\
+Ginninderra&$66076$&$5$&$28$&$284$&126.1&2012\\
+Molonglo&$91534$&$7$&$27$&$683$&208.4&2012\\
 \hline
 \end{tabular}
 \caption{ACT Legislative Assembly 2008 and 2012}
