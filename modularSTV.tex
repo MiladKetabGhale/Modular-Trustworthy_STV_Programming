@@ -20,9 +20,6 @@
 %\usepackage{eeesubcaption}
 \title{Modular Formalisation and Verification of \\STV Algorithms}
 \author{} % double blind
-%\author{Milad K. Ghale 
-%\hspace*{0.5cm} Dirk Pattinson}
-%\institute{Research School of Computer Science, ANU, Canberra}
 \begin{document}
 \maketitle
 \pagestyle{plain}
@@ -79,7 +76,7 @@ to the candidate at the last
 count)  of an elected candidate is transferred. In
 contrast, the variant of STV used to elect the upper house in the
 Australian state of Vivtoria transfer \emph{all} ballots (at a
-reduced trasfer value). Similar differences also exist for the
+reduced transfer value). Similar differences also exist for the
 transfer of votes once a candidate is being eliminated. 
 
 On the other hand, all variants of STV share a large set of
@@ -106,8 +103,8 @@ object encapsulates, we separate them into three sets: initial
 states (all ballots uncounted), final states
 (election winners are declared) and intermediate states. The latter
 carry
-seven pieces of information; the list of uncounted ballots left to
-be dealt with currently, the tally amount of each candidate, the
+seven pieces of information: the list of uncounted ballots left to
+be dealt with currently, the tally of each candidate, the
 pile of ballots which had been counted in their favour, and four
 lists which specify the list of elected candidates whose votes await
 being transferred, the list of eliminated candidates whose votes is
@@ -160,8 +157,8 @@ produce an visualised trace of computation upon each execution. The
 certificate is checkable \emph{by general member of the public} for
 correctness independent of the means employed for producing it.
 That is to say, we provably implement the count-as-cast
-aspect ~\cite{DBLP:journals/iacr/CortierGKMT16} of the universal
-verifiability quality. Finally, our experimental tests with real
+aspect ~\cite{DBLP:journals/iacr/CortierGKMT16} of universal
+verifiability. Finally, our experimental tests with real
 elections demonstrate feasibility of our approach for  real world
 applications. Compared with other formalisations of STV, where
 even small changes in the details of a single rule requires adapting
@@ -191,7 +188,9 @@ including several used in Australian parliamentary elections.
 %generic version.  
 %
 
-In this section, we elaborate on what the components of the generic version are and how they function as a whole. Shortly afterwards, we demonstrate how the properties  are established in the theorem prover Coq and then modularly illustrate how they extend to particular STV cases. For this purpose, we describe our generic STV design by employing a pedagogical language from theoretical computer science, namely automata theory and programming semantics.  
+We begin by describing the components of minimal STV before
+discussing their implementation in the Coq theorem prover, together
+with examples. 
 
 %Moreover, to make our theoretical approach more sensible, we choose a particular STV algorithm which is used as the counting scheme in the ATC state of Australia for lower house elections. We refer to it throughout to make the discussion concrete to the reader.
 
@@ -223,11 +222,19 @@ In this section, we elaborate on what the components of the generic version are 
 %After the surplus votes from an elected candidate have been distributed, the total number of votes which each candidate has received is recalculated. Any further candidates that have votes equal to or greater than the quota are elected. Provided vacancies remain to be filled, the surplus votes of any newly elected candidate are now also distributed one by one.
 %\end{description}
 \subsection{The Machine States and Transitions}
-In tallying process of an election, there are some pieces of information which are necessary to know in order to handle the computation. Moreover, this  kind of data invariably appears throughout the tallying process so that tally officers would have access to current state of the procedure. For example, in hand counting methods, officers must know what are the uncounted ballots and what is the current tally amount for each candidate. Since computations are local phenomena, tallying process is divided into stages of counting each of which comprises such vital data. These encapsulated pieces of information, form the sates of our generic STV machine. 
 
+The best way to think of minimal STV and its instances is in terms
+of an abstract machine. The states can be thought of
+as snapshots of the hand counting procedure, where there is e.g. a
+current tally, and a set of uncounted ballots at every stage.
+Tallying is then formalised as transition between these states. 
 
-There are three types of machine sates; \emph{initial}, \emph{intermediate}, and \emph{final}. An initial state specifies the list of all \emph{formal} ballots cast to be tallied. On the other hand, final states of the machine are accepting stages where winners of an election are announced. Last, each intermediate state consists of six components:
-\begin{enumerate}
+There are three types of machine sates: \emph{initial},
+\emph{intermediate}, and \emph{final}. An initial state specifies
+the list of all \emph{formal} ballots. 
+Final states of the machine are accepting stages where
+winners of an election are announced. Each intermediate state
+consists of six components: \begin{enumerate}
 \item A set of uncounted ballots, which must be counted
 \item A tally function computing the amount of vote for each candidate
 \item A pile function computing which ballots are assigned to which candidate
@@ -236,21 +243,62 @@ There are three types of machine sates; \emph{initial}, \emph{intermediate}, and
 \item A list of elected candidates
 \item A list of continuing candidates 
 \end{enumerate}  
-One could think of  the pile and tally functions as abstraction of the action performed by tally officers when they respectively assign ballots and their values to candidates.
+%One could think of  the pile and tally functions as abstraction of
+%the action performed by tally officers when they respectively assign
+%ballots and their values to candidates.
 
 
-To express machine states in a mathematically enough precise language, we use symbols each of which stands for a notion introduced above. A set of candidates participating in an election is represented by $\mathcal{C}$ and members of this set are illustrated by $c$, $c'$, and $c''$. The set of ballots $\mathcal{B}$, is a short hand for (\textsf{List} $\mathcal{C}$)$\times\mathbb{Q}$, where $\mathbb{Q}$ is the set of rational numbers. Therefore a ballot $ba$ is a pair $(l,q)$ where $l\in$ \textsf{List}($\mathcal{C}$) and $q\in\mathbb{Q}$. The characters $h$ and $nh$ are reserved for lists of continuing candidates, $e$ and $ne$ for lists of elected candidates, and $bl$, $nbl$ for backlogs. A backlog $bl$ is a pair $(l1,l2)$, where $l1$ contains the list of elected candidate whose votes should be transferred, and $l$ is list containing the eliminated candidates. The quota of election and number of seats are symbolised by $qu$ and $st$, respectively. Finally, tallies are shown by $t$, $nt$ and piles by $p$, $np$.  
+\noindent
+Our mathematical formalisation uses the following terminology. 
+We write $\mathcal{C}$ for the set of candidates 
+participating in an election. Individual candidates are denoted by 
+$c$, $c'$, and $c''$. The set of ballots
+$\mathcal{B}$, is a shorthand for (\textsf{List}
+$\mathcal{C}$)$\times\mathbb{Q}$, where $\mathbb{Q}$ is the set of
+rational numbers. Therefore a ballot $\mathit{ba}$ is a pair $(l,q)$ where
+$l\in$ \textsf{List}($\mathcal{C}$) and $q\in\mathbb{Q}$. The
+characters $h$ and $nh$ are reserved for lists of continuing
+candidates (``hopefuls''), $e$ and $ne$ for lists of elected candidates, and $bl$,
+$nbl$ for backlogs. A backlog $bl$ is a pair $(l1,l2)$, where $l1$
+contains the list of elected candidate whose votes should be
+transferred, and $l$ is list containing the eliminated candidates
+whose votes are to be transferred.The quota of election and number of seats are symbolised by $qu$ and
+$st$, respectively. Finally, tallies are denoted by $t$, $nt$ and
+piles by $p$, $np$.  
+ The prefix ``$n$'' in the above
+stands for ``new'', e.g. $\mathit{ne}$ denotes the elected
+candidates in the post state, after an action has been applied.
 
 
-Suppose $ba \in\mathcal{B}$, and $bl , h, e, w \in$ \textsf{List}($\mathcal{C}$) are given. Also assume $t$ is a function from $\mathcal{C}$ into $\mathbb{Q}$, and $p$ is a function from $\mathcal{C}$ into \textsf{List}($\mathcal{B}$). Then we illustrate an initial state of the machine by \textsf{initial}($ba$), an intermediate state by \textsf{intermediate}($ba, t, p, bl, e, h$), and a final one by \textsf{final}($w$). Having established terminology and necessary representations, we can mathematically define the states of the generic STV machine. 
-\begin{definition}[machine states]\label{stv:states}
-Suppose $ba$ is the initial list of ballots cast to be counted, and $l$ is the list of all of candidates competing in the election. Then the set $\mathcal{S}$ of states of the generic STV equals to all of possible intermediate and final states formed based on $ba$ and $l$, together with the initial state \textsf{initial}($ba$).
+Suppose $ba \in\mathcal{B}$, and $bl , h, e, w \in$
+\textsf{List}($\mathcal{C}$) are given. Also assume $t$ is a
+function from $\mathcal{C}$ into $\mathbb{Q}$, and $p$ is a function
+from $\mathcal{C}$ into \textsf{List}($\mathcal{B}$). We write
+\textsf{initial}($ba$) for the initial state, denote an intermediate state by
+\textsf{intermediate}($ba, t, p, bl, e, h$), and a final one by
+\textsf{final}($w$). Having established terminology and necessary
+representations, we can mathematically define the states of the
+generic STV machine.  
+\begin{definition}[machine
+states]\label{stv:states}
+Suppose $ba$ is the initial list of ballots cast to be counted, and
+$l$ is the list of all of candidates competing in the election. Then
+the set $\mathcal{S}$ of states of the generic STV is the union of
+all 
+possible intermediate and final states that can be constructed from on $ba$ and $l$,
+together with the initial state \textsf{initial}($ba$).
 \end{definition}
-There is also a mechanism devised to advance the counting process by updating the current state of the count with necessary changes. For example, if the counting comes to a stage where some candidate has received enough votes to be elected, a particular rule for electing permits making the transition from this state into a new one where the candidate has been elected. 
+\noindent
+We now describe the mechanisms to progress an STV count such as
+electing all candidates that have reached the quota. 
+These steps, formalised as \emph{rules},  are the essence of each particular instances of 
+STV, and are the one cornerstone of our generic notion of STV (the
+other being the properties that rules need to satisfy). We stipulate
+that each instance of STV needs to implement the following
+mechanisms that we formulate as rules relating a pre-state and a
+post-state:
 
-
-These steps which are an integral part of each STV and perform updating the information locally, are named counting rules. A specific set of counting rules consistently comes into sight when looking into instances of STV :
-\\
+\smallskip\noindent\framebox{\parbox{\textwidth}{
 \noindent\textbf{start.} to determine the \emph{formal} votes and valid initial states.\\
 \noindent\textbf{count.} for counting the uncounted ballots,\\
 \noindent\textbf{elect.} to elect one or more candidates who have reached or exceeded the quota,\\ 
@@ -258,141 +306,347 @@ These steps which are an integral part of each STV and perform updating the info
 \noindent\textbf{transfer-removed.} to transfer the votes of the eliminated candidate.\\
 \noindent\textbf{eliminate.} to eliminate the weakest candidate from the process, and\\ 
 \noindent\textbf{elected win.} to finish the counting by announcing the  already elected candidates as winners. \\
-\noindent\textbf{hopeful win.} to finish the counting by declaring the list of elected and continuing candidates as winners.\\
+\noindent\textbf{hopeful win.} to finish the counting by declaring the list of elected and continuing candidates as winners.
+}}
 
-Each of these counting rules accept a machine state as input and output another state. At the moment, we treat them merely as transition labels of the generic STV. However, in the next section, we specify a semantics for each and explain their computational content.
+\smallskip\noindent
+For the moment, we treat the above as transition labels only, and
+provide semantical meaning in the next section.
+
 \begin{definition}[machine transitions]\label{stv:trans}
 The set $\mathcal{T}$ consisting of the labels \textbf{count}, \textbf{elect}, \textbf{transfer-elected}, \textbf{transfer-removed}, \textbf{eliminate}, \textbf{hopeful win}, and \textbf{elected win}, is the set of transition labels of the generic STV.
 \end{definition}
+
 \subsection{The Small-step Semantics}
-STV protocols are composed of clauses which primarily textually describe the expectations of the protocol from each counting rule. Protocol clauses informally specify when and to what kind of state a counting rule applies, and how it must update this state by making a transition to another. From the algorithmic perspective, STV protocols carry two common   consistent properties. The first is some invariant requirements in order for a counting rule to be applicable, which we formalise in this section. The second involves invariant order of rule applications, which is discussed in the next section. 
+The textual description of STV is usually in terms of clauses that
+specify what actions are to be undertaken, under what conditions. In
+our formulation, this corresponds pre and postconditions for the
+individual counting rules. The pre-condition is an
+\emph{applicability constraint}: it specifies under what conditions
+a particular rule is applicable. The postcondition is a
+\emph{reducibility constraint}: it specifies how applying a rule
+progresses the count.  Taken together, they form the \emph{sanity
+check} for an individual rule. Technically, the applicability
+constraints ensure that they count never gets stuck, i.e. there is
+always one applicable rule, and reducibility guarantees termination. 
 
 
 
 
-On the other hand, there are conditions that appear invariably among different STV schemes. These conditions, each of which correspond to a transition label, comprise the small-step semantics for the generic STV machine. They are also used to check if a given arbitrary STV can legitimately be categorised as an STV instance. We obtain the conditions by singling out the key invariant properties existing in each STV scheme and name them \emph{sanity checks}. The checks are formed by conjunction of the reducibility and local rule applicability properties.
 \paragraph{Reducibility.} 
-A careful examination of STV protocols illustrates that each rule application at least reduces the length of one the following four objects: the list of continuing candidates, the length of all of the ballots in the pile of the most recent eliminated candidate,  the backlog, or the list of uncounted ballots. The astute observer quickly grasps that by the correct choice of ordering among the above quantities, a complexity measure can be imposed on the set of machine states in such a way that each rule application reduces the measure. This measure persists to apply and function across various STV algorithms and to each transition label.     
-\paragraph{Local Rule Applicability.} In order to legally correctly apply a counting rule, the protocol declares some restrictions to be met first. Many of the constraints depend on the particular protocol, however some of them consistently come to attention. For example, all of STV algorithms require three properties to hold in order for elimination rule to apply: there must be empty seats to fill, there must not be any surplus votes awaiting transfer, and no candidate should have reached or exceeded the quota. Each one of the counting rules is constrained to their distinct conditions that constantly apply, regardless of the specifics of the STV protocol invoked.
+A careful examination of STV protocols shows that each rule
+reduces the size of at least one of the following four
+objects: the list of continuing candidates, the number of 
+ballots in the pile of the most recent eliminated candidate,  the
+backlog, or the list of uncounted ballots. Using lexicographic
+ordering, this allows us to define a 
+a complexity measure on the set of
+machine states in such a way that each rule application reduces this
+measure. 
 
+\paragraph{Local Rule Applicability.}
+Ever incarnation of STV needs to, and indeed does, impose 
+restrictions on when rules can and must be applied. These
+depend on the particular protocol, however some
+of them are uniform: for example, all STV
+algorithms require three properties to hold in order for elimination
+rule to apply: there must be empty seats to fill, there must not be
+any surplus votes awaiting transfer, and no candidate should have
+reached or exceeded the quota. We constrain each of the counting
+rules in this way to guarantee that at least one rule can always be
+applied. 
 
 To formulate the sanity checks for each transition step, we first  define a lexicographic ordering on the set $\mathbb{N}\times\mathbb{N}\times\mathbb{N}\times\mathbb{N}
 \times\mathbb{N}$ and impose it on non-final states of the generic machine.   
-\begin{definition}
-Let $\{s: \mathcal{S} |$ $s$ not final$\}$ be the set of non-final machine states. 
-Then \begin{small}\textsf{Measure} (\textsf{initial} $ba$) = (1,0,0,0,0)\end{small}. Suppose $bl$ $=$ $(l_{1},l_{2})$, for some lists $l_{1}$ and $l_{2}$, and for a given candidate $c$, \textsf{flat} (p c) $=$ $l_{c}$. Then   
+\begin{definition} \label{defn:measure}
+Let $\{s: \mathcal{S} \mid s\mbox{ not final}\}$ be the set of
+non-final machine states. We define a function $\mathsf{Measure}:
+\mathcal{S} \to
+\mathbb{N}^5$ as follows. We let
+\begin{small}\textsf{Measure} (\textsf{initial} $ba$) = (1,0,0,0,0)\end{small}. Suppose $bl$ $=$ $(l_{1},l_{2})$, for some lists $l_{1}$ and $l_{2}$, and for a given candidate $c$, \textsf{flat} (p c) $=$ $l_{c}$. Then   
 \begin{small}
 \begin{center}
  \textsf{Measure} (\textsf{state} ($ba,t,p,bl,e,h$)) = (0, \textsf{length} $h$, $\sum_{d\in l_{2}}^{}$ \textsf{length} $l_{c}$,\textsf{length} $l_{1}$,\textsf{length}  $ba$).
 \end{center}
 \end{small}
 \end{definition}
-We detail the checks for transfer and elect rules and do not attend to  the rest of them due to space limitations. Each sanity check is a conjunction of two properties which concern the reducibility and local applicability. 
 
-\paragraph{Transfer-elected check.} For a given transition label $R$ to be formally approved as a legal transfer-elected transition, satisfaction of two criteria is needed. The first one asserts that for any current intermediate machine state \textsf{input} 
- of the form \textsf{state}($[]$,$t$,$p$,$bl$,$e$,$h$) where there are no uncounted ballots left, if there are vacancies to fill, i.e. \textsf{length}($e$) $< st$, there are surpluses awaiting transfer, i.e. $bl \neq []$, and no continuing candidate has reached or exceeded the quota, then there must exist another intermediate machine state \textsf{output} which is reachable from \textsf{input} by one step through $R$, i.e. \textsf{input} $R$ \textsf{output}. The second condition requires that : 
-\begin{itemize} 
-\item the input of $R$ be an intermediate state where there is no ballot left to count, i.e. $ba = []$, 
-\item the output to be an intermediate state as well, 
-\item any application of $R$ reduces  the length of the backlog. 
-\item the list of uncounted ballots, the pile and the backlog are updated. However, the lists of elected and continuing candidates remain the same as before.
- \end{itemize} 
+\noindent
+Note that the first component of the codomain of the measure
+function just serves to reduce measure from the initial state to any
+intermediate state. In the following, we describe
+the sanity checks for transfer and elect in detail, and leave it to
+the reader to follow those for other rules on the basis of the
+formal Coq development.
+
+\paragraph{Transfer-elected check.} A rule that decribes the tansfer
+of surplus of an elected candidate (labelled \emph{transfer-elect})
+needs to satisfy two conditions. The applicability constraint
+asserts that  transfer-elect is applicable to 
+any intermediate machine state \textsf{input} of the
+form \textsf{state}($[]$,$t$,$p$,$bl$,$e$,$h$) where there are no
+uncounted ballots left, if there are vacancies to fill, i.e.
+\textsf{length}($e$) $< st$, there are surpluses awaiting transfer,
+i.e. $bl \neq []$, and no continuing candidate has reached or
+exceeded the quota. Under these conditions, we stipulate the
+existence of a post-state 
+\textsf{output} which is reachable from \textsf{input} via a
+transition labelled \emph{transfer-elected}. 
+The reducibility condition requires that any application of
+\emph{transfer-elected} reduces the length of the backlog
+$\mathit{bl}$ while elected and continuing candidates remain
+unchanged.  Mathematically, this takes the following form:
+
+
+%\begin{itemize} 
+%\item the input of $R$ be an intermediate state where there is no ballot left to count, i.e. $ba = []$, 
+%\item the output to be an intermediate state as well, 
+%\item any application of $R$ reduces  the length of the backlog. 
+%\item the list of uncounted ballots, the pile and the backlog are updated. However, the lists of elected and continuing candidates remain the same as before.
+% \end{itemize} 
 \begin{definition}[transfer-elected sanity check]\label{trans:check}
-Assume $R$ is given. It is accepted as a legal transfer-elected transition label if and only if the followings hold. 
-\begin{itemize}
-\item for any machine state \textsf{input}, tally $t$, pile $p$, and lists of candidates $bl$, $e$, and $h$, if  \textsf{input} $=$ \textsf{state}($[]$,$t$,$p$,$bl$,$e$,$h$), and
-\begin{enumerate}
-\item (\textsf{length} $e$) $< st$ 
-\item $bl \neq []$
-\item $\forall c.$ $(c \in h \rightarrow (t$ $c$ $< qu))$ 
-\end{enumerate}  
-then exists a machine state \textsf{output} such that \textsf{input} $R$ \textsf{output}.
-\item for any machine states \textsf{input} and \textsf{output}, if we can move from \textsf{input} state to the \textsf{output} by $R$, then there exist a tally $t$, piles $p$ and $np$, backlogs $bl$ and $nbl$, a list of continuing candidates $h$, and a list of elected candidates $e$ such that \textsf{input} $=$ \textsf{state}($[]$,$t$,$p$,$bl$,$e$,$h$), \textsf{length}($nbl$) $<$ \textsf{length}($bl$), and \textsf{output} $=$ \textsf{state}($nba$,$t$,$np$,$nbl$,$e$,$h$).
-\end{itemize}
+A rule $R \subseteq \mathcal{S} \times \mathcal{S}$ satisfy the
+\emph{transfer-elected sanity check}  if and only if the following
+hold:
+\begin{description}
+\item[applicability] for any state 
+$\mathsf{input} = \mathsf{state}([],t,p,bl,e,h)$ that satisfies 
+(\textsf{length} $e$) $< st$  (there are still seats to fill), $bl
+\neq []$ (there are votes to be transferred) and 
+$\forall c.$ $(c \in h \rightarrow (t$ $c$ $< qu))$  (no candidate
+has reached the quota), there exists a post-state 
+\textsf{output} such that \textsf{input} $R$ \textsf{output}.
+\item[reducibility] for any machine states \textsf{input} and
+\textsf{output}, if $\mathsf{input} R \mathsf{output}$ then
+$\mathsf{input}$ is of the form 
+ \textsf{input} $=$
+\textsf{state}($[]$,$t$,$p$,$bl$,$e$,$h$), $\mathsf{output}$ is of
+the form \textsf{output} $=$
+\textsf{state}($nba$,$t$,$np$,$nbl$,$e$,$h$) and \textsf{length}($nbl$)
+$<$ \textsf{length}($bl$) (i.e. the backlog is reduced). 
+\end{description}
 \end{definition}
+
+\noindent
+The following is immediate from the definition of measure
+(Definition \ref{defn:measure}):
 \begin{theorem}\label{trans:red}
-Suppose $R$ is a transition label which satisfies the second condition stated in definition~\ref{trans:check}. Also assume \textsf{input}, \textsf{output} $\in\mathcal{S}$ and \textsf{input} $R$ \textsf{output}. Then the complexity of \textsf{output} is less than the \textsf{input}.  
+Suppose $R$ is a transition label which satisfies the second
+condition stated in definition~\ref{trans:check}. Also assume
+\textsf{input}, \textsf{output} $\in\mathcal{S}$ and \textsf{input}
+$R$ \textsf{output}. Then the complexity of \textsf{output} is less
+than the \textsf{input}, i.e. $\mathsf{Measure}(\mathsf{input})$ is
+lexicographically smaller than $\mathsf{Measure}(\mathsf{output})$
 \end{theorem}
-\paragraph{Elect check.}
-A transition label $R$ must meet two expectations to legitimately be an STV elect transition. First, for an arbitrary machine state \textsf{input} of the form \textsf{state}($[]$,$t$,$p$,$bl$,$e$,$h$), if there exist a continuing candidate $c$ which has reached or exceeded the  quota and if adding $c$ to the list of vacancies does not cause electing more than the number of empty seats, then there is a new machine state \textsf{output} which we can move to by $R$. Second, the input and output of $R$ must comply with the following constraints :
-\begin{itemize}
-\item the input must an intermediate machine state where there is no uncounted ballot left
-\item length of the update list of continuing candidates $nh$ is shorter than $h$
-\item the length of the updated list of elected candidates is shorter than $e$
-\item the output is another intermediate state where there are no ballots to count
-\item the pile function is updated to $np$, list of the backlog, continuing and elected candidates are updated to $nbl$, $nh$, and $ne$, respectively.
-\end{itemize}   
+
+\paragraph{Elect check.} The action of electing a candidate, also
+formalised as a rule in our framework, is subject to the following
+constraints: in the pre-state $\mathsf{input} = $
+\textsf{state}($[]$,$t$,$p$,$bl$,$e$,$h$), there must be a
+continuing candidate that has reached the quota, and there must be
+an unfilled vacancy. If this is the case, there must exist a
+post-state $\mathsf{output}$ where the set of continuing candidates
+is smaller, there are still no uncounted ballots, and the piles and
+backlog for candidates may be updated. 
+%continuing candidateif there exist a
+%continuing candidate $c$ which has reached or exceeded the  quota
+%and if adding $c$ to the list of vacancies does not cause electing
+%more than the number of empty seats, then there is a new machine
+%state \textsf{output} which we can move to by $R$. Second, the input
+%and output of $R$ must comply with the following constraints :
+%\begin{itemize} \item the input must an intermediate machine state
+%where there is no uncounted ballot left \item length of the update
+%list of continuing candidates $nh$ is shorter than $h$ \item the
+%length of the updated list of elected candidates is shorter than $e$
+%\item the output is another intermediate state where there are no
+%ballots to count \item the pile function is updated to $np$, list of
+%the backlog, continuing and elected candidates are updated to $nbl$,
+%$nh$, and $ne$, respectively.  \end{itemize}   
+%
+Mathematically, this takes the following form:
 \begin{definition}[elect sanity check]\label{elect:check}
-A transition label $R$ is a legal STV elect transition whenever the following conditions hold.
-\begin{itemize}
-\item for any $bl$, $e$, $h$ $\in$ \textsf{List}($\mathcal{C}$), the tally $t$ and pile $p$, and any \textsf{input} $\in\mathcal{S}$, if \textsf{input} $=$ \textsf{state}($[]$,$t$,$p$,$bl$,$e$,$h$) and if there exists a continuing candidate $c$ such that \textsf{length}($e$) $+ 1$ $<$ $st$ and $qu$ $\leq$ ($t$ $c$) then there is a machine state \textsf{output} where \textsf{input} $R$ \textsf{output}.
-\item for any \textsf{input}, \textsf{output} $\in$ $\mathcal{S}$, if \textsf{input} $R$ \textsf{output} then for some tally $t$, piles $p$ and $np$, backlogs $bl$ and $nbl$, candidate lists $e$, $ne$, $h$, and $nh$, it is the case that  
- \textsf{input} $=$ \textsf{state}($[]$,$t$,$p$,$bl$,$e$,$h$), \textsf{length}($nh$) $<$ \textsf{length}($h$), \textsf{length}($e$) $<$ \textsf{length}($ne$), and \textsf{output} $=$ \textsf{state}($[]$,$t$,$np$,$nbl$,$ne$,$nh$). 
-\end{itemize}
+A rule $R \subseteq \mathcal{S} \times \mathcal{S}$ satisfies the
+\emph{elect sanity check} if and only if the following two
+conditions hold:
+\begin{description}
+\item[applicability]
+For any state $\mathsf{input} = \mathsf{state}([], t, p, bl, e, h)$
+and any continuing candidate $c \in h$, if $t(c) \geq qu$ (candidate
+$c$ has reached the quota) and $\mathsf{length}(e) < st$ (there are
+still vacancies), there exists a post-state $\mathsf{output}$ such
+that $\mathsf{input} R \mathsf{output}$.
+\item[reducibility]
+for any states $\mathsf{input}$ and $\mathsf{output}$, if
+$\mathsf{input} \mathrel{R} \mathsf{output}$, then $\mathsf{input}$
+is of the form $\mathsf{input} = \mathsf{state}([],  t, p, bl, e,
+h)$, $\mathsf{output}$ is of the form $\mathsf{output} =
+\mathsf{state} ([], nt, np, nbl, ne, nh)$ and both $\mathsf{length}(nh) <
+\mathsf{length}(h)$, $\mathsf{length}(ne) > \mathsf{length}(e)$.
+\end{description}
 \end{definition}
+\noindent
+Analogous to Theorem \ref{trans:red} we have the following:
 \begin{theorem}\label{elect:red}
-Assume a transition label $R$ meets the second condition of definition~\ref{elect:check}. Then any application of the transition $R$ reduces the complexity measure.
+Assume a transition rule $R$ meets the second condition of definition~\ref{elect:check}. Then any application of the transition $R$ reduces the complexity measure.
 \end{theorem}
-Similarly we define sanity checks corresponding to other transition labels, namely start, count, eliminate, hopeful win, and elected win. Additionally, for other sanity checks, we establish theorems such as Theorem~\ref{elect:red}. Then by drawing on them, we obtain a corollary on the measure reduction for the generic STV machine. 
+
+\noindent
+Similarly we define sanity checks corresponding to other transition
+labels, namely start, count, eliminate, hopeful win, and elected
+win. Additionally, for other sanity checks, we establish theorems
+such as Theorems~\ref{trans:red} and \ref{elect:red}. Then by drawing on them, we obtain
+a corollary on the measure reduction for the generic STV machine.
 \begin{corollary}\label{measure:reduction}
-Any transition label $R$ which satisfies a check condition reduces the complexity measure.
+Any transition $R$ corresponding to a machine transition in
+$\mathcal{T}$ that satisfies the corresponding sanity check reduces the complexity measure.
 \end{corollary}  
 
 
-The sanity checks specify what is the computational content of an execution of a transition label on a given input. Therefore, the set of sanity checks $\mathcal{SC}$ operates as a small-step semantics for the generic STV machine. 
+%\begin{itemize}
+%  \item for each transition label $t \in T$, a rule $R_t
+%\end{itemize}
+%of the generic STV machineThen by the
+%generic STV model of computation we mean the structure
+%$<\mathcal{S}$, $\mathcal{T}>$, where each transition in
+%$\mathcal{T}$ satisfies the pertinent sanity check in
+%$\mathcal{SC}$.  \end{definition}
+
+\subsection{The Generic STV Machine} 
+The sanity checks constrain the computation that may happen on a
+given input state if the corresponding rule is applied. A set of
+rules, each of which satisfies the correspoinding sanity check, can
+therefore be seen as a small-step semantics for STV counting. We
+capture this mathematically as a generic machine.
 
 \begin{definition}[The generic STV machine]
-Let $\mathcal{S}$ be the set specified in definition~\ref{stv:states} and $\mathcal{T}$ be the set of transition labels given in definition~\ref{stv:trans}. Then by the generic STV model of computation we mean the structure $<\mathcal{S}$, $\mathcal{T}>$, where each transition in $\mathcal{T}$ satisfies the pertinent sanity check in $\mathcal{SC}$. 
+Let $\mathcal{S}$ be the set of STV states
+(Definition~\ref{stv:states})  and $\mathcal{T}$ be the set of
+transition labels (Definition~\ref{stv:trans}). The \emph{generic
+STV machine} is $M = \langle \mathcal{T}, (S_t)_{t \in \mathcal{T}}
+\rangle$ where $S_t$ is the santity check condition associated with
+transition $t \in \mathcal{T}$. An \emph{instance} of the generic
+STV machine is a tuple $I = \langle \mathcal{T}, (R_t)_{t \in
+\mathcal{T}} \rangle$, where for each $t \in \mathcal{T}$, $R_t
+\subseteq \mathcal{S} \times \mathcal{S}$ is a rule that satisfies
+the sanity check condition $S_t$. 
 \end{definition}
-\subsection{The Invariant Terminating Structure in Executions}
+
+\noindent
+In the sequel, we show that each instance of the generic STV machine
+in fact produces an election result, present a formalisation, and
+several concrete instances.
+
+\subsection{Progress via Applicability Condition}
+  
+%subsectionTermination via App
 %So far we demonstrated that STV algorithms have three properties in common. They all have states of the computation with similar data structure. Also the steps' names are invariably the same across STV schemes. More importantly the conditions according to which those steps individually take place share universal properties. 
-There is one last ubiquitous property which numerous STV algorithms respect and appears in the way counting rules must collectively behave. Many STV algorithms specify a precedence of rule applications so that one knows which individual rule must be applied next. This order determines the overall structure of the computation. For example, STV protocols require that if there are uncounted ballots, no rule other than the count rule should apply. As another example, they assert that when all of the vacancies have been filled, only the rule elected win must apply. Definition~\ref{stv:alg} lays down this invariant structure existing in several STV algorithms. 
 
+One specific ``sanity check'', in fact the sanity check that did
+inspire the very term, is the ability to in fact always be able to
+progress the count. That is, the rules are such that one (more) rule
+is applicable at every stage of the count, and there are no ``dead
+ends''. We have seen that each rule comes with specific
+applicability conditions, e.g. no rule other than count may apply if
+there are uncounted ballots, or that all elected candidates shall be
+declared winners if the number of candidates marked elected equals
+the number of seats to be filled.  
 
-\begin{definition}\label{stv:alg}
-Suppose the current state of computation is \textsf{input}. Then the following pseudo algorithm specifies which transition should be used.\\
-%\begin{enumerate}
-1. Is \textsf{input} an initial state or an intermediate one? \\
-\hspace*{0.5cm}$\bullet$ if \textsf{input} is an initial state  then apply the rule start \\
-\hspace*{0.5cm}$\bullet$ if \textsf{input} is an intermediate \textsf{state}($ba$,$t$,$p$,$bl$,$e$,$h$), then \\
-\hspace*{0.6cm} 2. Is all vacancies filled, i.e. \textsf{length}($e$) $=$ $st$ ?\\
-\hspace*{0.8cm}
-$\bullet$ if yes then apply elected win and declare winners
-\\\hspace*{0.8cm}
-$\bullet$ if not then \\
-\hspace*{0.95cm} 3. Is \textsf{length} ($e$)$+$ \textsf{length}($h$) less than or equal to $st$?\\ 
-\hspace*{1.1cm}
-$\bullet$ if yes then apply hopeful win and declare winners  
-\\\hspace*{1.1cm} $\bullet$ if not then,\\
-\hspace*{1.3cm} 4. Is there uncounted ballots, i.e. $ba\neq []$ ?\\
-\hspace*{1.5cm} $\bullet$ if yes then apply count transition\\
-\hspace*{1.5cm} $\bullet$ if not then,\\
-\hspace*{1.7cm} 5. Has any candidate reached or exceeded the quota?\\
-\hspace*{1.9cm} $\bullet$ if yes then elect them by elect transition\\
-\hspace*{1.9cm} $\bullet$ if not then,\\
-\hspace*{2.1cm} 6. Are there votes awaiting transfer, i.e. \textsf{fst} $bl\neq []$?\\
-\hspace*{2.3cm} $\bullet$ if yes then,\\
- \hspace*{2.5cm}$\star$ if \textsf{snd} $bl=[]$, then apply transfer-elected\\
- \hspace*{2.5cm}$\star$ if \textsf{snd} $bl\neq []$ then apply transfer-removed\\
-\hspace*{2.3cm} $\bullet$ if not then, eliminate the weakest candidate.\\
+Here, this is captured by the various applicability conditions that
+are part of the sanity checks outlined above. The key insight is
+that if the sanity check conditions are satisfied, we can always
+progress the count by applying a rule. In a nutshell, the following
+steps are repeated in order:
+\begin{itemize}
+  \item the start rule applies (only) at initial states
+  \item if all vacancies are filled by elected canidates, then scrutiny shall cease
+  \item if elected and continuing candidates fill all vacancies,
+  scrutiny shall cease
+  \item uncounted ballots shall be counted
+  \item candidates that exceed the quota shall be 
+  elected
+  \item the surplus of elected candidates shall be transferred 
+  \item ballots of eliminated candidates shall be transferred
+  \item the weakest candidate shall be eliminated
+\end{itemize}
 
-\end{definition}
- We formally realise the content of definition~\ref{stv:alg} in the proof of the rule  applicability theorem.  We draw upon the local rule applicability property present in the sanity checks, which is satisfied by the generic STV model, to guide the theorem prover Coq to finalise the proof according to the pseudo algorithm above. Hence we formally verify the expectation of STV protocols on the invariant order of transition applications.
-%Moreover, we employ purely constrictive reasoning inside the constructive environment of Coq, our proof of the theorem~\ref{app}, in particular,  carries computational content. This content is used for the purpose of provably correct computations in each of the executions of programs extracted from Coq into Haskell.
+%
+%\begin{definition}\label{stv:alg}
+%Suppose the current state of computation is \textsf{input}. Then the following pseudo algorithm specifies which transition should be used.\\
+%%\begin{enumerate}
+%1. Is \textsf{input} an initial state or an intermediate one? \\
+%\hspace*{0.5cm}$\bullet$ if \textsf{input} is an initial state  then apply the rule start \\
+%\hspace*{0.5cm}$\bullet$ if \textsf{input} is an intermediate \textsf{state}($ba$,$t$,$p$,$bl$,$e$,$h$), then \\
+%\hspace*{0.6cm} 2. Is all vacancies filled, i.e. \textsf{length}($e$) $=$ $st$ ?\\
+%\hspace*{0.8cm}
+%$\bullet$ if yes then apply elected win and declare winners
+%\\\hspace*{0.8cm}
+%$\bullet$ if not then \\
+%\hspace*{0.95cm} 3. Is \textsf{length} ($e$)$+$ \textsf{length}($h$) less than or equal to $st$?\\ 
+%\hspace*{1.1cm}
+%$\bullet$ if yes then apply hopeful win and declare winners  
+%\\\hspace*{1.1cm} $\bullet$ if not then,\\
+%\hspace*{1.3cm} 4. Is there uncounted ballots, i.e. $ba\neq []$ ?\\
+%\hspace*{1.5cm} $\bullet$ if yes then apply count transition\\
+%\hspace*{1.5cm} $\bullet$ if not then,\\
+%\hspace*{1.7cm} 5. Has any candidate reached or exceeded the quota?\\
+%\hspace*{1.9cm} $\bullet$ if yes then elect them by elect transition\\
+%\hspace*{1.9cm} $\bullet$ if not then,\\
+%\hspace*{2.1cm} 6. Are there votes awaiting transfer, i.e. \textsf{fst} $bl\neq []$?\\
+%\hspace*{2.3cm} $\bullet$ if yes then,\\
+% \hspace*{2.5cm}$\star$ if \textsf{snd} $bl=[]$, then apply transfer-elected\\
+% \hspace*{2.5cm}$\star$ if \textsf{snd} $bl\neq []$ then apply transfer-removed\\
+%\hspace*{2.3cm} $\bullet$ if not then, eliminate the weakest candidate.\\
+%
+%\end{definition}
+ We realise this order of rule application in the
+ proof of the rule  applicability theorem.  We draw upon the local
+ rule applicability property present in the sanity checks, which is
+ satisfied by the generic STV model, to guide the theorem prover Coq
+ to finalise the proof according to the pseudo algorithm above.
+ Hence we formally verify the expectation of STV protocols on the
+ invariant order of transition applications.
+%Moreover, we employ purely constrictive reasoning inside the
+%constructive environment of Coq, our proof of the
+%theorem~\ref{app}, in particular,  carries computational content.
+%This content is used for the purpose of provably correct
+%computations in each of the executions of programs extracted from
+%Coq into Haskell.
 \begin{theorem}[Rule Applicability]\label{app}
-Assume \textsf{input} is a current non-final state of the STV model of computation. Then there is always a transition label  $R$ in $\mathcal{T}$ such that we can move from \textsf{input} to a new state \textsf{output} through $R$, in accordance to the algorithm in definition~\ref{stv:alg}. 
+Let $I = \langle \mathcal{T}, (R_t)_{t \in \mathcal{T}} \rangle$ be
+an instance of the generic STV machine.  If \textsf{input} is a
+non-final state of the STV model of computation, then there is a 
+transition label  $t$ in $\mathcal{T}$ such that we can
+move from \textsf{input} to a new state \textsf{output} through
+$R_t$, i.e. $\mathsf{input}\mathrel{R_t}\mathsf{output}$.
 \end{theorem}
 Corollary~\ref{measure:reduction} asserts that whenever a transition $R$ $\in$ $\mathcal{T}$ applies, it reduces the complexity measure. Theorem~\ref{app} establishes the fact that for any non-final machine state, indeed a transition from the set $\mathcal{T}$ is applicable. Therefore we accomplish a termination property for the generic STV model. Expressed in the programming semantics terminology, it asserts that every execution of the generic STV model has a meaning which is the sequence of computations taken to eventually terminate, and that each execution produces an output which is the value of that execution. 
 \begin{theorem}[Termination]\label{termination}
-Each execution of the generic STV machine on any initial \textsf{input} state terminates at a final state \textsf{output}, along with constructing the sequence of computations taken from \textsf{input} to reach to \textsf{output}. 
-\end{theorem}   
+Each execution of every instance of the generic STV machine on any
+initial state
+\textsf{input} terminates at a final state \textsf{output},
+along with constructing the sequence of computations taken from
+\textsf{input} to reach to \textsf{output}.  \end{theorem}   
+
 \section{Formalisation of The Generic Machine in Coq}
-We have formalised each notion introduced in the previous section in the theorem prover Coq. Out formalisation consists of a base for our framework and some separate modules which call the base to avoid duplication of encoding. The base contains the generic inductive types, definitions of sanity checks, parametric transition labels, specification of the STV machine, functions which are used to formulate the generic STV machine, and theorems proved about the generic STV model. It also includes functions which are commonly called by the modules to carry computation for instances of STV. The modules, on the other hand, mainly host encoding of particular STV schemes. They essentially include four parts :
+We have formalised each notion introduced in the previous section in
+the theorem prover Coq. Our formalisation consists of a base layer,
+with instances defined in separate modules.
+The base layer contains the generic
+inductive types, definitions of sanity checks, parametric transition
+labels, specification of the STV machine, functions which are used
+to formulate the generic STV machine, and theorems proved about the
+generic STV model. It also includes functions which are commonly
+called by the modules to carry computation for instances of STV.
+Instances consist of four parts:
+
 \begin{itemize}
-\item[1.] instantiation of the generic counting transitions defined in the base, with concrete instances of counting rules of a particular STV schemes
-\item[2.] discharging proofs which establish sanity checks for the instantiated transition rules
-\item[3.] possibly defining particular functions for evaluating specifically with the STV instance defined in the module
-\item[4.] instantiation of the termination theorem with the concrete transition rules, and proofs of the sanity checks for these transitions.
+\item[1.] instantiations of the generic counting conditions defined in the base, with concrete instances of counting rules of a particular STV schemes
+\item[2.] proofs which establish sanity checks for the instantiated transition rules
+\item[3.] possibly auxilary fuctions specific to the particular
+instance of STV
+\item[4.] an instantiation of the termination theorem which allows
+us to synthesise a provably correct, and certifiable, vote counting
+implementation
 \end{itemize}       
 Here we  briefly discuss the base of the framework and the reasons for some of our design decisions. In the next section, we demonstrate  modular formalisation of three different STV algorithms.  
 
@@ -451,7 +705,16 @@ Corresponding to each generic transition label, there is a formal definition of 
 \label{fig;fig.2}
 \end{figure}
 \end{scriptsize}
-Sanity checks are constraints which are expected of every instance of STV to successfully pass in order to be classified as an STV scheme. Here we illustrate the encoding of the sanity checks for the elect transition label. Items (1) and (2) in the figure~\ref{fig;fig.2} respectively match with the first and the second items given in definition~\ref{elect:check}. Note that the check loosens the constraint so that in order for elect rule to apply, we need an electable continuing candidate and electing them would not exceed the number of vacancies. This allows us to later define a concrete elect transition for CADE STV which elects only one candidate who has reached or exceeded the quota, rather than electing all of the electable candidates together. Moreover, we are able to formalise other instances of elect transitions which do elect all of the eligible candidates in one step. 
+Sanity checks are constraints which are expected of every instance
+of STV to successfully pass in order to be classified as an STV
+scheme. Here we illustrate the encoding of the sanity checks for the
+elect transition. Items (1) and (2) in the Figure~\ref{fig;fig.2}
+respectively match with the first and the second items given in
+Definition~\ref{elect:check}. Note that the check loosens the
+constraint so that in order for elect rule to apply, we need an
+electable continuing candidate and electing them would not exceed
+the number of vacancies. This allows us to define a concrete
+elect transition for e.g. CADE STV \cite{DBLP:conf/cade/BeckertGS13} which elects only one candidate who has reached or exceeded the quota, rather than electing all of the electable candidates together. Moreover, we are able to formalise other instances of elect transitions which do elect all of the eligible candidates in one step. 
 
 
 \paragraph{Generic STV record.} We bundle the generic quota,  transition labels and the evidences that the generic transitions satisfy the sanity checks, in one record type named {\fontfamily{qcr}\selectfont STV\_record}. For example, one record field of {\fontfamily{qcr}\selectfont STV\_record} is the requirement that the generic elect transition meets the constraints of the elect sanity check, which technically means ({\fontfamily{qcr}\selectfont Elect\_sanity\_check (elect)}) $\in$ {\fontfamily{qcr}\selectfont STV\_record}. 
@@ -462,10 +725,12 @@ Finally, we formally prove all of the mathematical properties discussed under th
 We already have discussed some points where STV schemes diverge from one another. They mainly vary in their specification of formal votes, quota, what is the surplus of an elected candidate, how many candidates to elect out of all of those who are electable, how to update the transfer value of votes of an elected candidate, how to transfer the surpluses, or how to eliminate a candidate and then distribute their votes among other continuing candidates.
 
 
-We have formalised some STV schemes used in real election. For the sake of space limitation, we mention two of them here. First, for each of them we describe some key aspects which distinguish their way of electing and transferring elected  votes from the other STV cases mentioned under this section.
+We have formalised some STV schemes used in real election, out of
+which we describe two in detail. 
   
 \subsection{Victoria STV}
-The Victoria state of Australia employs a version of STV~\cite{} for  electing the upper house representatives. 
+The Victoria state of Australia employs a version of
+STV~\cite{ofVictoria:2002:EA} for  electing the upper house representatives. 
 %There are some particularities about this STV, all of which we have realised in our work, but our demonstrative intentions only need to elaborate on a few properties related to electing and transferring elected surpluses.
 %\begin{enumerate}
 %\item[a.] The transfer value of ballots of an elected candidate $c$ is computed by multiplying the current value of each ballot at a fraction according to the following formula  
@@ -480,7 +745,7 @@ The Victoria state of Australia employs a version of STV~\cite{} for  electing t
 %\item[c.] transferring all surplus votes of an elected candidate in one step. And transferring the surplus of other elected candidates, in order of the magnitude of their tally amount,  in later separate steps.
 %\item[d.] candidates may be elected after any of the transfers, if they come to reach or exceed the quota. 
 %\end{enumerate}
-Figure~\ref{fig;fig.3} depicts the instantiation of the generic elect transition label with our formulation of the Victoria STV elect rule. Each line of {\fontfamily{qcr}\selectfont Victoria\_Elect} embodies some clauses of Victoria state's counting protocol which specify the elect rule. We only explain lines 5, 6, and 7 of figure~\ref{fig;fig.3} to show how they accommodate some  of the protocol's clauses. 
+Figure~\ref{fig;fig.3} depicts the instantiation of the generic elect transition label with our formulation of the Victoria STV elect rule. Each line of {\fontfamily{qcr}\selectfont Victoria\_Elect} embodies some clauses of Victoria state's counting protocol which specify the elect rule. We only explain lines 5, 6, and 7 of Figure~\ref{fig;fig.3} to show how they accommodate some  of the protocol's clauses. 
 
 \begin{scriptsize}
 \begin{figure}[b]
@@ -501,17 +766,37 @@ Figure~\ref{fig;fig.3} depicts the instantiation of the generic elect transition
 \end{scriptsize}
 
 The counting protocol of Victoria STV, defines surpuls votes to be \lq\lq \emph{the number, if any, of votes in excess of the
-quota of each elected candidate}\rq\rq. Moreover it dictates, under section 17, subsection 7 clause (a), that \lq\lq  \emph{the number of surplus votes of the elected candidate is to be
+quota of each elected candidate}\rq\rq. Moreover it dictates, under Section 17, Subsection 7 Clause (a), that \lq\lq  \emph{the number of surplus votes of the elected candidate is to be
 divided by the number of first preference votes received by the
 elected candidate and the resulting fraction is the transfer value}\rq\rq. In lines 6 and 7, we compute the surplus vote and the fractional transfer value accordingly and multiply it at the current value of every ballot in the pile of the elected candidate $c$ to update the pile of this candidate. 
 
 
 The protocol further states under subsection (8), and (13) that \lq\lq \emph{Any continuing candidate who has received a number of votes equal to
 or greater than the quota on the completion of any transfer under subsection (7), or on the completion of a transfer of votes of an
-excluded candidate under subsection (12) or (16), is to be declared elected}\rq\rq. Recall that theorem~\ref{app} respects the structure of definition~\ref{stv:alg}.  The definition requires electing the electable candidate(s) no matter how they have obtained enough votes. We therefore, meet the clauses (8) and (13) by line 5, where we elect everyone over or equal to the quota, place them in the update list of elected candidates {\fontfamily{qcr}\selectfont ne}, and insist that the list of elected candidates in this state, namely {\fontfamily{qcr}\selectfont l} and the old list of elected candidates {\fontfamily{qcr}\selectfont e} together form a permutation of {\fontfamily{qcr}\selectfont ne}. The choice for permutation carries further details which realise other parts of the protocol, nonetheless we need to ignore mentioning them.   
+excluded candidate under subsection (12) or (16), is to be declared elected}\rq\rq. 
+The definition requires electing candidate(s) no matter how they
+have obtained enough votes. We therefore implement clauses (8) and
+(13) in Line 5, where we elect everyone over or equal to the quota,
+place them in the update list of elected candidates
+{\fontfamily{qcr}\selectfont ne}, and insist that the list of
+elected candidates in this state, namely
+{\fontfamily{qcr}\selectfont l} and the old list of elected
+candidates {\fontfamily{qcr}\selectfont e} together form a
+permutation of {\fontfamily{qcr}\selectfont ne}. The choice for
+permutation carries further details which realise other parts of the
+protocol, which we leave to the reader. 
 
 Next, we describe how the updated pile of an elected candidate in {\fontfamily{qcr}\selectfont Victoria\_Elect} is transferred by Victoria's transfer-elect transition.       
-Figure~\ref{fig;fig.4} illustrates the instantiation of the generic transfer-elected rule with a concrete case used by Victoria STV. Notice that in the first conjunct of line 4 in figure~\ref{fig;fig.3}, we order the list of elected candidates according to the tally amount. When it comes to transferring elected surplus, as you see in line 4 of figure~\ref{fig;fig.4}, the biggest surplus is dealt with first which belongs to candidate $c$. Furthermore, line 5 specifies that  \emph{all of this candidate's surplus is distributed} at the fractional value decided in  {\fontfamily{qcr}\selectfont Victoria\_Elect}
+Figure~\ref{fig;fig.4} illustrates the instantiation of the generic
+transfer-elected rule with a concrete case used by Victoria STV.
+Notice that in the first conjunct of Line 4 in
+Figure~\ref{fig;fig.3}, we order the list of elected candidates
+according to the tally amount. When it comes to transferring elected
+surplus, as we see in Line 4 of Figure~\ref{fig;fig.4}, the biggest
+surplus is dealt with first which belongs to candidate $c$.
+Furthermore, Line 5 specifies that  \emph{all of this candidate's
+surplus is distributed} at the fractional value decided in
+{\fontfamily{qcr}\selectfont Victoria\_Elect}.
 \begin{scriptsize}
 \begin{figure}[h]
 {\fontfamily{qcr}\selectfont
@@ -529,9 +814,14 @@ Figure~\ref{fig;fig.4} illustrates the instantiation of the generic transfer-ele
 \end{scriptsize}
 %Lines 1 and 3 along with first conjuncts of lines~2 and 4 correspond to the first item of definition~\ref{trans:check} of transfer sanity check. On the other hand, line 5 and conjuncts of line 4 enable {\fontfamily{qcr}\selectfont Victoria\_TransferElected} to successfully pass expectations of the second item in definition~\ref{trans:check}. Hence, the Victoria's instantiation of transfer-elected fulfils the reducibility and local applicability checks of definition~\ref{stv:alg}  and therefore respects the generic STV algorithm.  
 %\vspace*{-0.5cm}
-\subsection{ACT STV}
-Government of the Australian Capital Territory uses a version of STV~\cite{} for election of the lower house. This STV stands out for some of its characteristics, including transfer of the last parcel of votes and the formulation of transfer value.  Logical specification of the elect transition of ACT STV matches with the one in figure~\ref{fig;fig.4} except for lines 6 and 7, which is replaced by the following.\\
-\begin{small}
+\subsection{Australian Capital Territory STV}
+Government of the Australian Capital Territory uses a version of
+STV~\cite{Assembly:1994:AEP} for election of the lower house. This STV stands out for
+some of its characteristics, including transfer of the last parcel
+of votes and the formulation of transfer value.  The 
+specification of the elect transition of ACT STV is similar to the
+one in Figure~\ref{fig;fig.4} except for lines 6 and 7, which are
+replaced by the following.\\ \begin{small}
 {\fontfamily{qcr}\selectfont np(c)= \textsf{map}}
 ({\fontfamily{qcr}\selectfont \textsf{fun} b =>}
 \begin{tabular}{c}
@@ -541,14 +831,18 @@ Government of the Australian Capital Territory uses a version of STV~\cite{} for
 \end{tabular}) {\fontfamily{qcr}\selectfont (\textsf{last}(p c))}
 \end{small}
 
-Moreover, the ACT version of transfer-elected accords with figure~\ref{fig;fig.4} except that the fist conjunct in line 5 is substituted by a different proposition :
-\begin{center}
-{\fontfamily{qcr}\selectfont 
- nba= \textsf{last} (p c)}
- \end{center}
+\noindent
+Moreover, the ACT version of transfer-elected is as in 
+Figure~\ref{fig;fig.4} except that the fist conjunct in Line 5 is
+substituted by a different proposition and reads \texttt{nba = last
+(p c)}. 
 The two variations together tell us that we only transfer the last parcel of the elected candidate and the transfer value equals to the surplus votes of this candidate divided by the sum of fractional values of this last parcel, rather than the tally of the elected candidate.  
 
-There are obvious possible issues with the transfer value formula used in the ACT STV. It may come to a situation where the fractional value of a surplus vote is bigger than 1, which is essentially a flaw of the algorithm. As a result, the software used by authorities of ACT which implements the algorithm, named EVACS~\cite{}, makes modifications to ensure no surplus votes become more than 1. We adapt this corrected version in our implementation. Nonetheless, nothing would restrict  us from  selecting the defective original formula of ACT STV, if we chose to.
+There are obvious possible issues with the transfer value formula
+used in the ACT STV. It may come to a situation where the fractional
+value of a surplus vote is bigger than 1, which is essentially a
+flaw of the algorithm. As a result, the software used by authorities
+of ACT which implements the algorithm~\cite{Improvements:2015:EVC}, makes modifications to ensure no surplus votes become more than 1. We adapt this corrected version in our implementation. Nonetheless, nothing would restrict  us from  selecting the defective original formula of ACT STV, if we chose to.
 %\subsection{CADE STV}
 \section{Certifying Extracted Programmes and Experiments}
 We use the built-in mechanisms of Coq to  extract executable programme for each module into the Haskell language. The automatic extraction  method provides a sufficient degree of  verification that the executable behaves in accordance to its Coq formalisation. Correctness proofs established in the Coq therefore extend to the executables. However, upon each execution of the programs, we generate a run-time certificate which functions as an independently checkable evidence for reliability of the computation carried out.
@@ -581,19 +875,48 @@ We use the built-in mechanisms of Coq to  extract executable programme for each 
 \label{fig;figure5}
 \end{figure}
 \end{small}
+\noindent
 Theorem~\ref{termination} guarantees that for each run of the program a formal certificate exists. Moreover, the theorem elaborates that the formal certificate is the sequence of computation performed in the execution to obtain the final result. To produce a concrete certificate, upon each execution of extracted Haskell programmes, we visualise this formal sequence of machine states and transitions which we have encountered  from the input to reach to the end result.
 
 
-The concrete certificate generated for each input instance, relieves the general public of laying trust in the skilfulness of the programmer, their  well grounded understanding of legal texts, the extraction means used, and any hardware malfunctioning. 
+The certificate generated for each input proves correctness of the
+count to the general public, without need to trust in the skilfulness of the programmer, their  well grounded understanding of legal texts, the extraction means used, and any hardware malfunctioning. 
 %It can be \emph{scrutinised by anyone} for its conformity with the STV counting algorithm employed to tally election votes. 
 Checkability of the visualised certificate by \emph{any scrutineers} witnesses that our tallying technique satisfies the count-as-recorded subproperty of the universal verifiability quality. Consequently, any election protocol designed for STV schemes which requires proof of tallying correctness can utilize our tool.
 
- Figure~\ref{fig;figure5} illustrates an example of a concrete certificate, where candidates a, b, and c are competing over one seat. We only shortly explain it, as we have detailed concrete certificates elsewhere\cite{}.  We use exact fractions for computations to avoids issues explained in literature~\cite{DBLP:conf/voteid/GoreL16} about rounding numbers. Every intermediate line depicts six component each of which corresponds to an abstract data representation of the intermediate states of the abstract  machine. They are separate by semi-colon symbol.  The first one is the list of uncounted ballots. The Second one is tallies of candidates. The third part shows piles of each candidate. The last three are the backlog, list of elected, and list of continuing candidates. 
- %The list of initial ballots is placed at the top. The step start decides on formal ballots and the quota of this sample election. Then we count the first preferences. the candidate a and b receive one vote each and c obtains two. No one is over the quota, so we eliminate the weakest candidate by removing him from the list of continuing candidates and placing him in the second component of backlog. Next step, we transfer his votes by putting them into the list of uncounted ballots. Afterwards, count applies. Since c reached the quota, he is elected. As there was only one vacancy and we have filled it, the rule elect win applies to declare the final result.
+ Figure~\ref{fig;figure5} illustrates an example of a concrete
+ certificate, where candidates a, b, and c are competing for one
+ seat. We discuss certification only briefly as it is analogous to
+ \cite{Ghale:2017:FVS}.
+ We use exact fractions for
+ computations to avoids issues explained in
+ literature~\cite{DBLP:conf/voteid/GoreL16} about rounding numbers.
+ Every line shows six component each of which
+ corresponds to an abstract data representation of the intermediate
+ states of the abstract  machine: the 
+ list of uncounted ballots, the tallies of candidates, each
+ candidate's pile, the backlog and the list of elected and
+ continuing candidates. 
+ %The list of initial ballots is placed at the top. The step start
+ %decides on formal ballots and the quota of this sample election.
+ %Then we count the first preferences. the candidate a and b receive
+ %one vote each and c obtains two. No one is over the quota, so we
+ %eliminate the weakest candidate by removing him from the list of
+ %continuing candidates and placing him in the second component of
+ %backlog. Next step, we transfer his votes by putting them into the
+ %list of uncounted ballots. Afterwards, count applies. Since c
+ %reached the quota, he is elected. As there was only one vacancy
+ %and we have filled it, the rule elect win applies to declare the
+ %final result.
  
  
- We have evaluated efficiency of our approach by testing the extracted module for the lower house ACT STV on some real elections held in 2006 and 2008 (figure~\ref{ref;figure6}). Molonglo electorate of ACT is the biggest lower house electorate in Australia, both in terms of the number of candidates who are elected and the number of voters in the district. The extracted programme computes the result in just 22 minutes.  
- \begin{small}
+ We have evaluated the efficiency of our approach by testing the
+ extracted module for the lower house ACT STV on some real elections
+ held in 2006 and 2008 (Figure~\ref{ref;figure6}). The Molonglo
+ electorate of ACT is the biggest lower house electorate in
+ Australia, both in terms of the number of candidates who are
+ elected and the number of voters in the district. The extracted
+ programme computes the result in just 22 minutes.  \begin{small}
 \begin{figure}[b]
 \centering
 %\begin{tabu} to 0.86\textwidth {X[c] X[c] X[c] X[c] X[c] X[c]}
@@ -614,20 +937,91 @@ Molonglo&$91534$&$7$&$27$&$683$&208.4&2012\\
 \end{figure}
 \end{small}  
 \section{A Technical Discussion}
-Here we introduce a framework for formalisation, verification, and provably correct computation with various STV algorithms. Our software is the outcome of macro level design decisions which we made prior to the implementation. In the architecture, we have been attentive to  balancing out between different standards for designing a framework. As a result, the final product surpasses the earlier attempt  made in formalisation of STV algorithms\cite{}.
+We have introduced a framework for formalisation, verification, and
+provably correct computation with various STV algorithms. Our
+software is the outcome of macro level design decisions which we
+made prior to the implementation. In the architecture, we have been
+attentive to  balancing out between different standards for
+designing a framework. The modular design allows for a much simpler
+implementation than made possibly by other frameworks (e.g.
+\cite{Ghale:2017:FVS}) as we only need to discharge proofs at a
+per-rule basis which is also reflected in the fact that (a) we
+capture realistic voting protocols, and (b) we can accommodate a
+larger number of protocols with ease.
+  
 
-Our previous work emphasises excessively on the data structure of STV algorithms and pays little attention to the algorithmic dimension. In short, it first formalises a  generic  specification of STV scheme, where the algorithm is encoded in terms of types to be instantiated later. The highly generically realised STV is bereft of algorithmic substance to the point that we do not perceive any specificity of STV. Consequently, each time one aims at instantiating the generic types with parameters to actually formalise an instance of STV, they have go through countless  duplication of data and algorithmic structure simply to  establish an instantiated version of the generic application and termination theorems. 
+Previous work emphasises data structures and certification, and
+showcases this by means of monolithic specifications and proofs. Our
+work adds modularity,  and we distil the algorithmic essence of STV
+into what we call \emph{sanity checks}.
 
+Every instance of 
+STV which satisfies the sanity checks enjoys rule applicability and
+termination property established in Theorems~\ref{app} and
+\ref{termination}. Therefore, for an instance of STV to be verified,
+we simply need to discharge the sanity checks rather than
+duplicating the whole proof process again. These checks
+offer an abstraction on the algorithmic side which helps us avoid
+duplication of encoding. Moreover, unlike the previous work, users
+do not need to know how the application theorem and termination have
+been proven in order to show termination of the particular instance
+into which they are interested.  Additionally, separation of into
+modules further improves usability.
+Everyone after a correct computation of their preferred flavouer of  ST, can simply 
+use the framework and instantiate as appropriate.
 
-Here we have distanced from generic programming and given weight to the algorithmic character of STV. The essence of STV algorithms is encoded in sanity checks which operate on any instance of STV. Any STV which satisfies sanity checks, enjoys rule applicability and termination property established in theorems~\ref{app} and \ref{termination}. Therefore, for an instance of STV to be verified, we simply need to discharge the sanity checks rather than duplicating the whole proof process again. Therefore, the checks offer an abstraction on the algorithmic side which helps us avoid duplication of encoding. Moreover, unlike the previous work, users do not need to know how the application theorem and termination have been proven in order to show termination of the particular instance into which they are interested.  Thus we hide information which are not necessary for any user to be bothered with for using the software. Additionally, separation of encoding into modules besides promoting the information hiding, usability and abstraction further, makes our product extensible for future applications. Any user interested in correct computation with a preferred STV, would enjoy calling the base of the framework in and draw upon the existing functionalities to achieve the goal.
-
-The above choice is worthwhile, as the base of the framework which is dealt with once and for all comprises roughly 25000 lines of encoding. Each module already formalised is less than 500 lines. Therefore, an interested user has to just carry out formalisation and discharging sanity checks for about 500 lines to acquire a verified executable implementation of their favourite STV. On the other hand, accomplishing the same goal by using the previous platform, demands  25000 lines of encoding, along with overcoming numerous technicalities.   
-\paragraph{\textbf{Related work.}} DeYoung and Schurmann~\cite{DBLP:conf/voteid/2011} use Linear Logic~\cite{DBLP:journals/apal/Girard93} to formally specify a STV scheme and then discharge proofs inside the logical framework of Celf~\cite{DBLP:conf/cade/Schack-NielsenS08}. Technical knowledge of linear logic is required to understand how the textual description of the protocol matches with the formal one. On the other hand,  Pattinson and Shurmann~\cite{DBLP:conf/ausai/PattinsonS15}, and Verity and Pattinson~\cite{DBLP:conf/acsw/VerityP17} formalise a simple version of STV and First-past-The-Post elections in Coq. Their approach reduces the gap between the informal protocol and the encoded counting rules. Also they prove some properties such existence of winners in every formal execution. Then they extract certifying executable in Haskell which can compute large size elections. Pattinson and Tiwari~\cite{DBLP:conf/itp/PattinsonT17} tackle verification of Schultz method by the similar approach of specifying the algorithm in Coq, discharging proofs and extracting executables in Haskell and OCaml. Their extracted executable outputs performs effectively and certificates output in each run of the programme offer a unique feature. Besides evidence supporting why the winner has been elected, it also visualises non-existence of any path between each defeated candidate and the winner. Dawson et al~\cite{DBLP:conf/voteid/DawsonGM15} formalise a version of Hare-Clark in the theorem prover HOL~\cite{hol4}. Their specification is expressed in the Higher-Order-Logic. Moreover, they encode computational definition inside HOL and prove its correctness against the HOL specification of the protocol.  Then to actually compute, they manually transliterate the computational definitions from HOL into the syntax of Standard ML functional language.  A significant issue with this approach is existence of no guarantee that  the transliterate encoding would behave according to the original HOL definitions, simply because of semantic differences of HOL and SML. Therefore, their verification does not legitimately extend beyond HOL to the SML programme. 
+The ability to just instantiate is significant, as a large number of
+aspects are dealt with 
+once and for in the base layer that comprises roughly 25000 lines of
+code. Each module already formalised is less than 500 lines.
+Therefore, an interested user has to just carry out formalisation
+and discharging sanity checks in about 500 lines to acquire a
+verified executable implementation of their favourite STV. On the
+other hand, accomplishing the same goal by using the previous
+platform, demands  25000 lines of encoding, along with overcoming
+numerous technicalities.   
+\paragraph{\textbf{Related work.}}
+DeYoung and Schurmann~\cite{DBLP:conf/voteid/2011} use Linear
+Logic~\cite{DBLP:journals/apal/Girard93} to formally specify a STV
+scheme and then discharge proofs inside the logical framework of
+Celf~\cite{DBLP:conf/cade/Schack-NielsenS08}. Technical knowledge of
+linear logic is required to understand how the textual description
+of the protocol matches with the formal one. On the other hand,
+Pattinson and Shurmann~\cite{DBLP:conf/ausai/PattinsonS15}, and
+Verity and Pattinson~\cite{DBLP:conf/acsw/VerityP17} formalise a
+simple version of STV and First-past-The-Post elections in Coq.
+Their approach reduces the gap between the informal protocol and the
+encoded counting rules. Also they prove some properties such
+existence of winners in every formal execution. Then they extract
+certifying executable in Haskell which can compute large size
+elections. Pattinson and Tiwari~\cite{DBLP:conf/itp/PattinsonT17}
+tackle verification of Schultz method by the similar approach of
+specifying the algorithm in Coq, discharging proofs and extracting
+executables in Haskell and OCaml. Their extracted executable outputs
+performs effectively and certificates output in each run of the
+programme offer a unique feature. Besides evidence supporting why
+the winner has been elected, it also visualises non-existence of any
+path between each defeated candidate and the winner. Dawson et
+al~\cite{DBLP:conf/voteid/DawsonGM15} formalise a version of
+Hare-Clark in the theorem prover HOL~\cite{hol4}. Their
+specification is expressed in the Higher-Order-Logic. Moreover, they
+encode computational definition inside HOL and prove its correctness
+against the HOL specification of the protocol.  Then to actually
+compute, they manually transliterate the computational definitions
+from HOL into the syntax of Standard ML functional language.  A
+significant issue with this approach is existence of no guarantee
+that  the transliterate encoding would behave according to the
+original HOL definitions, simply because of semantic differences of
+HOL and SML. Therefore, their verification does not legitimately
+extend beyond HOL to the SML programme. 
 
 
    
 \section{Conclusion}
-We have designed a framework for modular formalisation, verification of, and provably correct computation with STV algorithms. The product hosts is formalised and verified encoding of key characteristics of STV schemes in a base. 
+We have designed a framework for modular formalisation, verification
+of, and provably correct computation with STV algorithms. Our work
+is fully formalised and provides an encoding and provably correct
+executables for various flavours of STV. 
 \bibliographystyle{splncs03}
 \bibliography{paper,delta2,ev}
 \end{document}
