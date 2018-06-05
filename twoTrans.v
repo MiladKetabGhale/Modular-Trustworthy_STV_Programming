@@ -222,6 +222,16 @@ Proof.
   auto.
 Qed.
 
+Lemma groupbysimple_not_empty: forall (l : list (list ({v : list cand | NoDup v /\ [] <> v} * Q))), 
+       last l []  <> [] -> l <> [].
+Proof.
+ intros.
+ intro.
+ rewrite H0 in H.
+ simpl in H.
+ contradict H.
+ auto.
+Qed.
 (*
 Fixpoint merge l1 l2 :=
   let fix merge_aux l2 :=
@@ -3276,7 +3286,7 @@ Definition VicTas_TransferElim (prem: FT_Judgement) (conc: FT_Judgement) :=
       (concat (p c') <> []) /\ 
       let x:= (groupbysimple _ (sort (concat (p c')))) in
        (nba = last x []) /\
-       np c' = (tl x) /\                                        
+       np c' = (removelast x) /\                                        
      (forall d, d <> c' -> np(d) = p(d))) /\    
    conc = state (nba, t, np, nbl, e, h). 
 
@@ -3290,10 +3300,11 @@ Proof.
  intros.
  destruct H0 as [H1 [H2 [H3 H4]]].
  unfold VicTas_TransferElim.
- exists (state (hd [] (rev (Parcel_same_val (length (flat_map (fun x => x) (p c))) (flat_map (fun x => x) (p c)))),
- t, fun d => if (cand_eq_dec d c) then tl (p c) else p d, (bl1, c::bl2), e, h)). 
- exists (hd [] (rev (Parcel_same_val (length (flat_map (fun x => x) (p c))) (flat_map (fun x => x) (p c))))). 
- exists t. exists p. exists (fun d => if (cand_eq_dec d c) then tl (p c) else p d). 
+ exists (state (((last (groupbysimple _ (sort (concat (p c)))) []): list ballot),
+ t, fun d => if (cand_eq_dec d c) then (removelast (groupbysimple _ (sort (concat (p c))))) else p d, (bl1, c::bl2), e, h)). 
+ exists (last (groupbysimple _ (sort (concat (p c)))) []). 
+ exists t. exists p. exists (fun d => if (cand_eq_dec d c) 
+   then (removelast ((groupbysimple _ (sort (concat (p c))))))  else p d). 
  exists (bl1,c::bl2). exists (bl1, c::bl2). exists h. exists e. intuition.
  specialize (list_nonempty_type cand bl1 H2). intro Nbl1.
  destruct Nbl1 as [Hbl1 [Tbl1 bl1N]].
@@ -3306,6 +3317,14 @@ Proof.
  contradiction H0. reflexivity.
 Qed.
 
+Lemma concat_app : forall (A:Type) (l1: list (list A)) l2, concat (l1 ++ l2) = concat l1 ++ concat l2.
+Proof.
+  intros.
+  induction l1 as [|x l1 IH]. induction l2. simpl.
+  reflexivity. simpl. auto.
+  simpl. rewrite IH; apply app_assoc.
+Qed.
+ 
 Lemma VicTas_TransferElim_SanityCheck_Red: SanityCheck_Transfer_Red VicTas_TransferElim.
 Proof.
  unfold SanityCheck_Transfer_Red. 
@@ -3335,14 +3354,43 @@ Proof.
  intro cont. rewrite cont in InTbl2. apply Hbl2_notInTail. assumption.
  specialize (K25 d not_eq_d).
  auto.
- assert (Len_piles_eq: forall d, In d Tbl2 -> length (p d) = length (np d)).
+ assert (Len_piles_eq: forall d, In d Tbl2 -> length (concat (p d)) = length (concat (np d))).
  intros d Hy.
  specialize (Piles_eq_Tbl2 d Hy).
  rewrite Piles_eq_Tbl2. auto.
- specialize (map_ext_in (fun c => length (p c)) (fun c => length (np c)) Tbl2 Len_piles_eq). intro nice.
+ specialize (map_ext_in (fun c => length (concat (p c))) (fun c => length (concat (np c))) Tbl2 Len_piles_eq). 
+ intro nice.
  rewrite nice.  
  rewrite K24.
- specialize (list_nonempty_type (list ballot) (p Hbl2) K23). intro notemp.
+ assert (Hypo: (groupbysimple _ (sort (concat (p Hbl2)))) <> []).
+ apply groupbysimple_not_empty.
+ apply sherin. 
+ auto. 
+ assert (Hypo2: groupbysimple _ (sort (concat (p Hbl2))) = 
+(removelast (groupbysimple _ (sort (concat (p Hbl2))))) ++ [last (groupbysimple _ (sort (concat (p Hbl2)))) []]).
+ apply app_removelast_last.
+ assumption.
+ assert (Hypo222: concat (groupbysimple _ (sort (concat (p Hbl2)))) =
+ concat ((removelast (groupbysimple _ (sort (concat (p Hbl2))))) ++
+  [last (groupbysimple _ (sort (concat (p Hbl2)))) []])).
+ 
+
+ assert (Hypo22: length (concat (groupbysimple _ (sort (concat (p Hbl2))))) = 
+ (length (concat (removelast (groupbysimple _ (sort (concat (p Hbl2)))))) + 
+ length (concat [last (groupbysimple _ (sort (concat (p Hbl2)))) []]))%nat). 
+ apply concat_app.  
+
+
+
+ assert (Hypo3: length
+     (concat
+        (removelast
+           (groupbysimple {v : list cand | NoDup v /\ [] <> v}
+              (sort (concat (p Hbl2)))))) <
+      length (groupbysimple _ (sort (concat (p Hbl2))))).
+ 
+ 
+ specialize (list_nonempty_type (ballot) (concat (p Hbl2)) K22). intro notemp.
  destruct notemp as [HeadP [TailP Hn]].
  rewrite Hn.
  simpl.
