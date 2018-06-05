@@ -3365,38 +3365,43 @@ Proof.
  assert (Hypo: (groupbysimple _ (sort (concat (p Hbl2)))) <> []).
  apply groupbysimple_not_empty.
  apply sherin. 
- auto. 
+ auto.  
  assert (Hypo2: groupbysimple _ (sort (concat (p Hbl2))) = 
 (removelast (groupbysimple _ (sort (concat (p Hbl2))))) ++ [last (groupbysimple _ (sort (concat (p Hbl2)))) []]).
  apply app_removelast_last.
  assumption.
  assert (Hypo222: concat (groupbysimple _ (sort (concat (p Hbl2)))) =
- concat ((removelast (groupbysimple _ (sort (concat (p Hbl2))))) ++
-  [last (groupbysimple _ (sort (concat (p Hbl2)))) []])).
- 
+                  concat ((removelast (groupbysimple _ (sort (concat (p Hbl2)))))
+                            ++
+                            [last (groupbysimple _ (sort (concat (p Hbl2)))) []])).
+ apply f_equal. assumption.
+ rewrite concat_app in Hypo222. 
 
  assert (Hypo22: length (concat (groupbysimple _ (sort (concat (p Hbl2))))) = 
  (length (concat (removelast (groupbysimple _ (sort (concat (p Hbl2)))))) + 
- length (concat [last (groupbysimple _ (sort (concat (p Hbl2)))) []]))%nat). 
- apply concat_app.  
-
-
-
- assert (Hypo3: length
-     (concat
-        (removelast
-           (groupbysimple {v : list cand | NoDup v /\ [] <> v}
-              (sort (concat (p Hbl2)))))) <
-      length (groupbysimple _ (sort (concat (p Hbl2))))).
- 
- 
- specialize (list_nonempty_type (ballot) (concat (p Hbl2)) K22). intro notemp.
- destruct notemp as [HeadP [TailP Hn]].
- rewrite Hn.
+  length (concat [last (groupbysimple _ (sort (concat (p Hbl2)))) []]))%nat).
+ rewrite <- app_length. apply f_equal. auto.
+ assert (Hypolen : length
+            (concat (groupbysimple {v : list cand | NoDup v /\ [] <> v} (sort (concat (p Hbl2))))) = 
+                   length (concat (p Hbl2))).
+ rewrite <- concat_rat. auto.
+ rewrite <- Hypolen.
+ rewrite  Hypo22.
  simpl.
- omega.
-auto.
+ assert (Hlen : forall (A : Type) (l : list A),
+            l <> []  -> 0 < length l).  
+ intros. destruct l. contradiction H. auto. simpl. omega.
+ specialize (groupby_notempty _ (sort (concat (p Hbl2)))). intros.
+ pose proof (sortedList_notempty (concat (p Hbl2)) K22).
+ specialize (H H0). 
+ specialize (Hlen _ _ H).
+ rewrite app_nil_r.
+ apply Nat.add_lt_mono_r.
+ apply NPeano.Nat.lt_add_pos_r. trivial.
+ auto.
 Qed.
+
+ 
 
 (*
 Definition UnionSTV := (mkSTV (quota)  
