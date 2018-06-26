@@ -2990,10 +2990,10 @@ Proof.
  rewrite H3 in H. assumption.
  exists bls. exists c.
  intuition.
- destruct (cand_eq_dec c c). reflexivity.
- contradict f. auto.
- destruct (cand_eq_dec d c).
- contradict H0. assumption.
+ destruct (cand_eq_dec c c) as [i | j]. reflexivity. 
+ contradict j. auto.
+ destruct (cand_eq_dec d c) as [i | j].
+ contradict i. assumption.
  auto.
 Qed.
 
