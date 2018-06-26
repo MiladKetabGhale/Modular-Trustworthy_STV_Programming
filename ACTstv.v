@@ -27,8 +27,7 @@ Require Import  Recdef.
 Require Import Framebase.
 Import TopBase.
 Import QSort.
-(*Import Base.
-*)
+
 Section ACT.
 
 
