@@ -26,9 +26,8 @@ Require Import Program.
 Require Import  Recdef.
 Require Import Framebase.
 Import TopBase.
-(*Require Import twoTrans.*)
 Import QSort.
-(*Import Base.*)
+
 
 Section ANUnion.
 
