@@ -1,14 +1,3 @@
-(* STV with fractional transfer (ANU Union rules) as instance of generic vote counting. *)
- 
-(* the first section is the generic part of the formalisation.*)
-(*the second section is the specialized part of the formalisation under the section "unionCount", which is formalisation of ANU_Union STV*)
-
-(*In the section unionCount, lines 163-1539 consist of lemmas and functions that we use to prove the two main theorems; measure decrease and rule application*)
-(*lines 1540-2590 consist of formalisation of rules of counting for ANU_STV and main theorems.*)
-(*the theorem Measure-decrease is separated into lemmas from line 1854 to line 2170*)
-(*the theorem Rule application begins from line 2251*)
-(*the theorem that is extracted is in line 2561*)
-
 Require Import Coq.Init.Peano.
 Require Import Notations.
 Require Import Coq.Lists.List.
