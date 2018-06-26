@@ -26,24 +26,11 @@ Require Import Program.
 Require Import  Recdef.
 Require Import Framebase.
 Import TopBase.
+(*Require Import twoTrans.*)
 Import QSort.
-Import Base.
+(*Import Base.*)
 
 Section ANUnion.
-
-(*
-Variable cand: Type.
-Variable cand_all: list cand.
-Hypothesis cand_nodup: NoDup cand_all.
-Hypothesis cand_finite: forall c, In c cand_all.
-Hypothesis cand_eq_dec: forall c d:cand, {c=d} + {c<>d}.
-Hypothesis cand_in_dec: forall c : cand, forall l : list cand, {In c l} + {~In c l}.
-(* a ballot is a permutation of the list of candidates and a transfer balue *)
-Definition ballot :=  ({v : list cand | (NoDup v) /\ ( [] <> v)} * Q).
-Variable bs : list ballot.
-Variable st : nat. 
-Variable quota : Q.
-*)
 
 Definition Union_InitStep (prem :FT_Judgement) (conc :FT_Judgement): Prop :=
  exists ba ba',  
@@ -51,6 +38,107 @@ Definition Union_InitStep (prem :FT_Judgement) (conc :FT_Judgement): Prop :=
   (ba' = (Filter ba)) /\
   (conc = state  (ba', [nty], nas, (nbdy, nbdy), emp_elec , all_hopeful))).
 
+
+Definition Union_count (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+ exists ba t nt p np bl h e,                (** count the ballots requiring attention **)
+  prem = state (ba, t, p, bl, e, h) /\     (* if we are in an intermediate state of the count *) 
+  [] <> ba /\                                        (* and there are ballots requiring attention *)
+  (forall c, if (cand_in_dec c (proj1_sig h)) 
+      then 
+  (exists l,                     
+    np(c) = p(c) ++ [l] /\                       
+    (forall b, In (proj1_sig (fst b)) (map (fun (d:ballot) => (proj1_sig (fst d))) l) <-> 
+                                                               fcc ba (proj1_sig h) c b) /\ 
+    (nt (c) = SUM (np(c)))) 
+      else ((nt c) = (hd nty t) c) /\ (np c) = (p c)) /\                 
+  conc = state ([], nt :: t, np, bl, e, h).     
+
+
+Definition Union_hwin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+  exists w ba t p bl e h,                            
+   prem = state (ba, t, p, bl, e, h) /\           
+   length (proj1_sig e) + length (proj1_sig h) <= st /\ 
+   w = (proj1_sig e) ++ (proj1_sig h) /\                        
+   conc = winners (w).
+
+Definition Union_ewin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+  exists w ba t p bl e h,                    (** elected win **)
+   prem = state (ba, t, p, bl, e, h) /\   (* if at any time *)
+   length (proj1_sig e) = st /\             (* we have as many elected candidates as seats *) 
+   w = (proj1_sig e) /\                        (* and the winners are precisely the electeds *)
+   conc = winners (w).                      (* they are declared the winners *)
+
+
+Definition Union_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+ exists nba t p np bl nbl h e,         (** transfer votes **) 
+  prem = state ([], t, p, bl, e, h) /\ 
+    (length (proj1_sig e) < st) /\
+    (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\        (* and we can't elect any candidate *)
+    exists l c,                          (* and there exists a list l and a candidate c *)
+     (bl = (c :: l, []) /\                     (* such that c is the head of the backlog *)
+     nbl = (l, []) /\                          (* and the backlog is updated by removing the head c *)
+     nba = flat_map (fun x => x) (p c) /\            (* and the pile of ballots for c is the new list of ballots requiring attention *)
+     np(c) = [] /\                                (* and the new pile for c is empty *)
+     (forall d, d <> c -> np(d) = p(d))) /\ (* and the piles for every other candidate remain the same *)   
+   conc = state (nba, t, np, nbl, e, h).  
+
+Definition Union_elim (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+  exists nba t p np e h nh bl2,                    
+   prem = state ([], t, p, ([], bl2), e, h) /\         
+   length (proj1_sig e) + length (proj1_sig h) > st /\ 
+   (forall c, In c (proj1_sig h) -> (hd nty t(c) < quota)%Q) /\ 
+   exists c,                                            
+     ((forall d, In d (proj1_sig h) -> (hd nty t(c) <= hd nty t(d)))%Q /\            
+     eqe c (proj1_sig nh) (proj1_sig h) /\                                   
+     nba = flat_map (fun x => x) (p c) /\                                   
+     np(c)=[] /\                                       
+     (forall d, d <> c -> np (d) = p (d)) /\                       
+   conc = state (nba, t, np, ([], []), e, nh)). 
+
+Definition Union_elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+ exists t p np (bl nbl: (list cand) * (list cand)) (nh h: {hopeful: list cand | NoDup hopeful})(e ne: {l : list cand | length l <= st }),
+    prem = state ([], t, p, bl, e, h) /\ 
+    exists l,                                      
+     (l <> [] /\                                  
+     length l <= st - length (proj1_sig e) /\    
+     (forall c, In c l -> In c (proj1_sig h) /\ (hd nty t (c) >= quota)%Q) /\      
+     ordered (hd nty t) l /\ 
+     Leqe l (proj1_sig nh) (proj1_sig h) /\          
+     Leqe l (proj1_sig e) (proj1_sig ne) /\     
+     (forall c, In c l -> ((np c) = map (map (fun (b : ballot) => 
+        (fst b, (Qred (snd b * (Qred ((hd nty t)(c)- quota)/(hd nty t)(c))))%Q))) (p c))) /\  
+     (forall c, ~ In c l -> np (c) = p (c)) /\  
+    fst nbl = (fst bl) ++ l) /\                                 
+  conc = state ([], t, np, nbl, ne, nh).      
+
+Definition VicTas_TransferElected2 (prem: FT_Judgement) (conc: FT_Judgement) :=
+ exists nba t p np bl nbl h e,         
+  prem = state ([], t, p, bl, e, h) /\ 
+    (length (proj1_sig e) < st) /\
+    (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\       
+    exists l c c' l',                          
+     (bl = (c :: l, c'::l') /\                   
+     nbl = (l, l') /\                          
+     nba = concat (p c) /\
+     concat (p c') = [] /\           
+     np(c) = [] /\                                 
+     (forall d, d <> c -> np(d) = p(d))) /\    
+   conc = state (nba, t, np, nbl, e, h). 
+
+Definition VicTas_TransferElim (prem: FT_Judgement) (conc: FT_Judgement) :=
+ exists nba t p np bl nbl h e,         
+  prem = state ([], t, p, bl, e, h) /\ 
+    (length (proj1_sig e) < st) /\
+    (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\       
+    exists l c c' l',                          
+     (bl = (c :: l, c'::l') /\                   
+     nbl = (c::l, c'::l') /\
+      (concat (p c') <> []) /\ 
+      let x:= (groupbysimple _ (sort (concat (p c')))) in
+       (nba = last x []) /\
+       np c' = (removelast x) /\                                        
+     (forall d, d <> c' -> np(d) = p(d))) /\    
+   conc = state (nba, t, np, nbl, e, h). 
 
 Lemma UnionInitStep_SanityCheck_App : SanityCheck_Initial_App Union_InitStep.
 Proof.
@@ -75,21 +163,6 @@ Lemma UnionInitStep_SanityCheck_Red: SanityCheck_Initial_Red Union_InitStep.
  intuition.
  intuition.
 Qed.
-
-
-Definition Union_count (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
- exists ba t nt p np bl h e,                (** count the ballots requiring attention **)
-  prem = state (ba, t, p, bl, e, h) /\     (* if we are in an intermediate state of the count *) 
-  [] <> ba /\                                        (* and there are ballots requiring attention *)
-  (forall c, if (cand_in_dec c (proj1_sig h)) 
-      then 
-  (exists l,                     
-    np(c) = p(c) ++ [l] /\                       
-    (forall b, In (proj1_sig (fst b)) (map (fun (d:ballot) => (proj1_sig (fst d))) l) <-> 
-                                                               fcc ba (proj1_sig h) c b) /\ 
-    (nt (c) = SUM (np(c)))) 
-      else ((nt c) = (hd nty t) c) /\ (np c) = (p c)) /\                 
-  conc = state ([], nt :: t, np, bl, e, h).     
 
 Hypothesis Bl_hopeful_NoIntersect : forall j: FT_Judgement, forall ba t p bl e h, j = state (ba,t,p,bl,e,h) ->
  (forall c, In c (snd bl) -> ~ In c (proj1_sig h)) * (forall c, In c (fst bl) -> ~ In c (snd bl)).
@@ -163,14 +236,6 @@ Lemma UnionCount_SanityCheck_Red: SanityCheck_Count_Red Union_count.
  rewrite H. auto.
 Qed.
 
-
-Definition Union_hwin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
-  exists w ba t p bl e h,                            
-   prem = state (ba, t, p, bl, e, h) /\           
-   length (proj1_sig e) + length (proj1_sig h) <= st /\ 
-   w = (proj1_sig e) ++ (proj1_sig h) /\                        
-   conc = winners (w).
-
 Lemma  UnionHwin_SanityCheck_App : SanityCheck_Hwin_App Union_hwin.                           
 Proof.
  unfold SanityCheck_Hwin_App.
@@ -191,13 +256,6 @@ Proof.
  exists w; exists ba; exists t; exists p; exists bl; exists e; exists h. 
  intuition.
 Qed.
-
-Definition Union_ewin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
-  exists w ba t p bl e h,                    (** elected win **)
-   prem = state (ba, t, p, bl, e, h) /\   (* if at any time *)
-   length (proj1_sig e) = st /\             (* we have as many elected candidates as seats *) 
-   w = (proj1_sig e) /\                        (* and the winners are precisely the electeds *)
-   conc = winners (w).                      (* they are declared the winners *)
 
 Lemma UnionEwin_SanityCheck_App : SanityCheck_Ewin_App Union_ewin.
 Proof.
@@ -220,19 +278,6 @@ Proof.
  rewrite <- H0.
  assumption.
 Qed.
-
-Definition Union_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
- exists nba t p np bl nbl h e,         (** transfer votes **) 
-  prem = state ([], t, p, bl, e, h) /\ 
-    (length (proj1_sig e) < st) /\
-    (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\        (* and we can't elect any candidate *)
-    exists l c,                          (* and there exists a list l and a candidate c *)
-     (bl = (c :: l, []) /\                     (* such that c is the head of the backlog *)
-     nbl = (l, []) /\                          (* and the backlog is updated by removing the head c *)
-     nba = flat_map (fun x => x) (p c) /\            (* and the pile of ballots for c is the new list of ballots requiring attention *)
-     np(c) = [] /\                                (* and the new pile for c is empty *)
-     (forall d, d <> c -> np(d) = p(d))) /\ (* and the piles for every other candidate remain the same *)   
-   conc = state (nba, t, np, nbl, e, h).  
 
 Lemma UnionTransfer_SanityCheck_App : SanityCheck_Transfer1_App Union_transfer.
 Proof.
@@ -277,19 +322,6 @@ Lemma UnionTransfer_SanityCheck_Red : SanityCheck_Transfer_Red Union_transfer.
  simpl.
  omega.
 Qed.
-
-Definition Union_elim (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
-  exists nba t p np e h nh bl2,                    
-   prem = state ([], t, p, ([], bl2), e, h) /\         
-   length (proj1_sig e) + length (proj1_sig h) > st /\ 
-   (forall c, In c (proj1_sig h) -> (hd nty t(c) < quota)%Q) /\ 
-   exists c,                                            
-     ((forall d, In d (proj1_sig h) -> (hd nty t(c) <= hd nty t(d)))%Q /\            
-     eqe c (proj1_sig nh) (proj1_sig h) /\                                   
-     nba = flat_map (fun x => x) (p c) /\                                   
-     np(c)=[] /\                                       
-     (forall d, d <> c -> np (d) = p (d)) /\                       
-   conc = state (nba, t, np, ([], []), e, nh)). 
 
 Lemma UnionElim_SanityCheck_App : SanityCheck_Elim_App Union_elim.
 Proof.
@@ -347,22 +379,6 @@ Lemma UnionElim_SanityCheck_Red : SanityCheck_Elim_Red Union_elim.
  exists ([]: list cand).
  intuition.
 Qed.
-
-Definition Union_elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
- exists t p np (bl nbl: (list cand) * (list cand)) (nh h: {hopeful: list cand | NoDup hopeful})(e ne: {l : list cand | length l <= st }),
-    prem = state ([], t, p, bl, e, h) /\ 
-    exists l,                                      
-     (l <> [] /\                                  
-     length l <= st - length (proj1_sig e) /\    
-     (forall c, In c l -> In c (proj1_sig h) /\ (hd nty t (c) >= quota)%Q) /\      
-     ordered (hd nty t) l /\ 
-     Leqe l (proj1_sig nh) (proj1_sig h) /\          
-     Leqe l (proj1_sig e) (proj1_sig ne) /\     
-     (forall c, In c l -> ((np c) = map (map (fun (b : ballot) => 
-        (fst b, (Qred (snd b * (Qred ((hd nty t)(c)- quota)/(hd nty t)(c))))%Q))) (p c))) /\  
-     (forall c, ~ In c l -> np (c) = p (c)) /\  
-    fst nbl = (fst bl) ++ l) /\                                 
-  conc = state ([], t, np, nbl, ne, nh).      
 
 Lemma UnionElect_SanityCheck_App : SanityCheck_Elect_App Union_elect.
 Proof.
@@ -456,20 +472,6 @@ Qed.
 Definition Union_quota := 
  (((inject_Z (Z.of_nat (length (Filter bs)))) / (1 + inject_Z (Z.of_nat st)) + 1)%Q). 
 
-Definition VicTas_TransferElected2 (prem: FT_Judgement) (conc: FT_Judgement) :=
- exists nba t p np bl nbl h e,         
-  prem = state ([], t, p, bl, e, h) /\ 
-    (length (proj1_sig e) < st) /\
-    (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\       
-    exists l c c' l',                          
-     (bl = (c :: l, c'::l') /\                   
-     nbl = (l, l') /\                          
-     nba = concat (p c) /\
-     concat (p c') = [] /\           
-     np(c) = [] /\                                 
-     (forall d, d <> c -> np(d) = p(d))) /\    
-   conc = state (nba, t, np, nbl, e, h). 
-
 Lemma VicTasTran2_SanityCheck_App : SanityCheck_Transfer2_App VicTas_TransferElected2. 
 Proof.
  unfold SanityCheck_Transfer2_App.
@@ -538,22 +540,6 @@ Proof.
  omega.
  auto.
 Qed.
-
-
-Definition VicTas_TransferElim (prem: FT_Judgement) (conc: FT_Judgement) :=
- exists nba t p np bl nbl h e,         
-  prem = state ([], t, p, bl, e, h) /\ 
-    (length (proj1_sig e) < st) /\
-    (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\       
-    exists l c c' l',                          
-     (bl = (c :: l, c'::l') /\                   
-     nbl = (c::l, c'::l') /\
-      (concat (p c') <> []) /\ 
-      let x:= (groupbysimple _ (sort (concat (p c')))) in
-       (nba = last x []) /\
-       np c' = (removelast x) /\                                        
-     (forall d, d <> c' -> np(d) = p(d))) /\    
-   conc = state (nba, t, np, nbl, e, h). 
 
 Hypothesis Bl_NoDup : forall j: FT_Judgement, forall ba t p bl e h, 
   j = state (ba,t,p,bl,e,h) -> NoDup (snd bl).

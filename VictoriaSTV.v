@@ -27,9 +27,8 @@ Require Import  Recdef.
 Require Import Framebase.
 Import TopBase.
 Import QSort.
-(*Import Base.
-*)
-Section ACT.
+
+Section VIC.
 
 
 Definition Update_transVal (c: cand) (p: cand -> list (list ballot)) (t: cand -> Q) :=
@@ -70,7 +69,7 @@ Definition Union_count (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
                                                                fcc ba (proj1_sig h) c b) /\ 
     (nt (c) = SUM (np(c)))) 
       else ((nt c) = (hd nty t) c) /\ (np c) = (p c)) /\                 
-  conc = state ([], nt :: t, np, bl, e, h).     
+  conc = state ([], nt :: t, np, bl, e, h). 
 
 Definition Union_hwin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
   exists w ba t p bl e h,                            
@@ -86,46 +85,44 @@ Definition Union_ewin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
    w = (proj1_sig e) /\                        (* and the winners are precisely the electeds *)
    conc = winners (w).                      (* they are declared the winners *)
 
-Definition Union_elim (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
-  exists nba t p np e h nh bl2,                    
+Definition VIC_elim (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+  exists  t p e h nh bl2,                    
    prem = state ([], t, p, ([], bl2), e, h) /\         
    length (proj1_sig e) + length (proj1_sig h) > st /\ 
    (forall c, In c (proj1_sig h) -> (hd nty t(c) < quota)%Q) /\ 
    exists c,                                            
      ((forall d, In d (proj1_sig h) -> (hd nty t(c) <= hd nty t(d)))%Q /\            
-     eqe c (proj1_sig nh) (proj1_sig h) /\                                   
-     nba = flat_map (fun x => x) (p c) /\                                   
-     np(c)=[] /\                                       
-     (forall d, d <> c -> np (d) = p (d)) /\                       
-   conc = state (nba, t, np, ([], []), e, nh)). 
+     eqe c (proj1_sig nh) (proj1_sig h) /\                                                          
+   conc = state ([], t, p, ([], c::bl2), e, nh)). 
 
-Definition ACT_TransferElected (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
- exists nba t p np bl nbl h e,
-  prem = state ([], t, p, bl, e, h) /\
-  (length (proj1_sig e) < st) /\
-  (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\
-  exists l c,
-   (bl = (c :: l,[]) /\
-   nbl = (l,[]) /\
-   nba = last (p c) [] /\ np(c) = [] /\
-     (forall d, d <> c -> np(d) = p(d))) /\
-   conc = state (nba, t, np, nbl, e, h).
+Definition Union_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+ exists nba t p np bl nbl h e,         (** transfer votes **) 
+  prem = state ([], t, p, bl, e, h) /\ 
+    (length (proj1_sig e) < st) /\
+    (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\        (* and we can't elect any candidate *)
+    exists l c,                          (* and there exists a list l and a candidate c *)
+     (bl = (c :: l, []) /\                     (* such that c is the head of the backlog *)
+     nbl = (l, []) /\                          (* and the backlog is updated by removing the head c *)
+     nba = flat_map (fun x => x) (p c) /\            (* and the pile of ballots for c is the new list of ballots requiring attention *)
+     np(c) = [] /\                                (* and the new pile for c is empty *)
+     (forall d, d <> c -> np(d) = p(d))) /\ (* and the piles for every other candidate remain the same *)   
+   conc = state (nba, t, np, nbl, e, h).  
 
-Definition ACT_Elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
- exists t p np (bl nbl: (list cand) * (list cand)) nh h (e ne: {l : list cand | length l <= st }),
-    prem = state ([], t, p, bl, e, h) /\
-    exists l,
-     (l <> [] /\
-     length l <= st - length (proj1_sig e) /\
-     (forall c, In c l -> In c (proj1_sig h) /\ (hd nty t (c) >= quota)%Q) /\    
-     ordered (hd nty t) l /\
-     Leqe l (proj1_sig nh) (proj1_sig h) /\
-     Leqe l (proj1_sig e) (proj1_sig ne) /\
-     (forall c, In c l -> ((np c) = map (map (fun (b : ballot) =>
-         (fst b, (Qred (snd b * (Update_transVal c p (hd nty t))))%Q))) [(last (p c) [])])) /\
-     (forall c, ~ In c l -> np (c) = p (c)) /\
-     fst nbl = (fst bl) ++ l) /\
-  conc = state ([], t, np, nbl, ne, nh).
+Definition Union_elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+ exists t p np (bl nbl: (list cand) * (list cand)) (nh h: {hopeful: list cand | NoDup hopeful})(e ne: {l : list cand | length l <= st }),
+    prem = state ([], t, p, bl, e, h) /\ 
+    exists l,                                      
+     (l <> [] /\                                  
+     length l <= st - length (proj1_sig e) /\    
+     (forall c, In c l -> In c (proj1_sig h) /\ (hd nty t (c) >= quota)%Q) /\      
+     ordered (hd nty t) l /\ 
+     Leqe l (proj1_sig nh) (proj1_sig h) /\          
+     Leqe l (proj1_sig e) (proj1_sig ne) /\     
+     (forall c, In c l -> ((np c) = map (map (fun (b : ballot) => 
+        (fst b, (Qred (snd b * (Qred ((hd nty t)(c)- quota)/(hd nty t)(c))))%Q))) (p c))) /\  
+     (forall c, ~ In c l -> np (c) = p (c)) /\  
+    fst nbl = (fst bl) ++ l) /\                                 
+  conc = state ([], t, np, nbl, ne, nh).      
 
 Definition VicTas_TransferElected2 (prem: FT_Judgement) (conc: FT_Judgement) :=
  exists nba t p np bl nbl h e,         
@@ -252,6 +249,7 @@ Lemma UnionCount_SanityCheck_Red: SanityCheck_Count_Red Union_count.
  rewrite H. auto.
 Qed.
 
+
 Lemma  UnionHwin_SanityCheck_App : SanityCheck_Hwin_App Union_hwin.                           
 Proof.
  unfold SanityCheck_Hwin_App.
@@ -295,11 +293,11 @@ Proof.
  assumption.
 Qed.
 
-Lemma UnionElim_SanityCheck_App : SanityCheck_Elim_App Union_elim.
+Lemma VicElim_SanityCheck_App : SanityCheck_Elim_App VIC_elim.
 Proof.
  unfold SanityCheck_Elim_App.
  intros.
- unfold Union_elim.
+ unfold VIC_elim.
  specialize (list_min cand (proj1_sig h) (hd nty t)). intro min_hopeful.
  destruct min_hopeful.
  rewrite e0 in H0.
@@ -309,10 +307,9 @@ Proof.
  omega.
  destruct s as [min [s1 s2]].
  specialize (remc_nodup (proj1_sig h) min (proj2_sig h) s1);intro H'1.
- exists (state (flat_map (fun x => x) (p min), t, fun d => if (cand_eq_dec d min) then [] else (p d),
-                                                ([], []), e, exist _ (remc min (proj1_sig h)) H'1)). 
- exists (flat_map (fun x => x) (p min)).
- exists t. exists p. exists (fun d => if (cand_eq_dec d min) then [] else (p d)). exists e. exists h. 
+ exists (state ([], t, p,
+                                                ([], min:: bl2), e, exist _ (remc min (proj1_sig h)) H'1)). 
+ exists t. exists p. exists e. exists h. 
  exists (exist _ (remc min (proj1_sig h)) H'1).
  intuition.
  exists bl2.
@@ -321,20 +318,17 @@ Proof.
  exists min.
  intuition.
  apply (remc_ok min (proj1_sig h) (proj2_sig h) s1).
- destruct (cand_eq_dec min min) as [i | j]. reflexivity.
- contradict j. auto.
- destruct (cand_eq_dec d min) as [i | j]. contradiction i. reflexivity.
 Qed.
 
-Lemma UnionElim_SanityCheck_Red : SanityCheck_Elim_Red Union_elim.
+Lemma VicElim_SanityCheck_Red : SanityCheck_Elim_Red VIC_elim.
  Proof.
  unfold SanityCheck_Elim_Red.
  intros. 
- unfold Union_elim in H.
- destruct H as [nba [t [p [np [e [h [nh [bl2 H1]]]]]]]].
+ unfold VIC_elim in H.
+ destruct H as [t [p [e [h [nh [bl2 H1]]]]]].
  destruct H1 as [H11 [H12 [H13 H14]]].
  destruct H14 as [weakest H141]. 
- exists nba. exists t. exists p. exists np. exists e. exists h. exists nh.  
+ exists ([]: list ballot). exists t. exists p. exists p. exists e. exists h. exists nh.  
  intuition.
  unfold eqe in H1.
  destruct H1 as [l1 [l2 [H' [H'' [H''' H'''']]]]].
@@ -348,56 +342,65 @@ Lemma UnionElim_SanityCheck_Red : SanityCheck_Elim_Red Union_elim.
  simpl.
  rewrite (app_length).
  exists bl2. 
- exists ([]: list cand).
+ exists (weakest :: bl2).
  intuition.
 Qed.
 
-Lemma ACT_TransferElected_SanityCheck_App : SanityCheck_Transfer1_App ACT_TransferElected.
+
+Lemma UnionTransfer_SanityCheck_App : SanityCheck_Transfer1_App Union_transfer.
 Proof.
  unfold SanityCheck_Transfer1_App.
  intros.
- destruct H0 as [H1 [H2 H3]].
- specialize (list_nonempty_type cand (fst bl) H2). intro Hyp. destruct Hyp as [head [tail Hyp1]].
- exists (state (last (p head) [], t, fun d => if (cand_eq_dec d head) then [] else (p d), (tail,[]), e, h)).
- unfold ACT_TransferElected. exists (last (p head) []). exists t. exists p.
- exists (fun d => if (cand_eq_dec d head) then [] else (p d)).
- exists (head::tail, ([]: list cand)). exists (tail, ([]: list cand)). exists h. exists e. rewrite Hyp1 in H. simpl in H.
+ unfold Union_transfer.
+ destruct H0 as [H01 [H02 H03]]. 
+ specialize (list_nonempty_type cand (fst bl) H02). intro Nonempty_bl.
+ destruct Nonempty_bl as [c s].  
+ destruct s as [bls H3].  
+ exists (state (flat_map (fun x => x) (p c), t, fun d => 
+                                                        if (cand_eq_dec d c) then [] else p d, 
+                                                        (bls, []), e, h)).
+ exists (flat_map (fun x => x) (p c)). exists t. exists p. 
+ exists (fun d => if (cand_eq_dec d c) then [] else p d). exists (c::bls, ([]: list cand)). 
+ exists (bls, ([]: list cand)). exists h.
+ exists e. 
  intuition.
- exists tail. exists head.
+ rewrite H3 in H. assumption.
+ exists bls. exists c.
  intuition.
- destruct (cand_eq_dec head head) as [i | j]. reflexivity. contradict j. auto.
- destruct (cand_eq_dec d head) as [i | j]. contradiction i. reflexivity.
+ destruct (cand_eq_dec c c) as [i | j]. reflexivity.
+ contradict j. auto.
+ destruct (cand_eq_dec d c) as [i | j].
+ contradict i. assumption.
+ auto.
 Qed.
 
-Lemma ACT_TransferElected_SanityCheck_Red : SanityCheck_Transfer_Red ACT_TransferElected.
-Proof.
+Lemma UnionTransfer_SanityCheck_Red : SanityCheck_Transfer_Red Union_transfer.
+ Proof.
  unfold SanityCheck_Transfer_Red.
  intros.
- unfold ACT_TransferElected in H.
+ unfold Union_transfer in H.
  destruct H as [nba [t [p [np [bl [nbl [h [e H1]]]]]]]].
  destruct H1 as [H11 [H12 [H13 H14]]].
- destruct H14 as [l [candid H141]].
- destruct H141 as [H1411 H1412].
- destruct H1411 as [H3 [H4 H5]].
- exists nba. exists t. exists p. exists np. exists bl. exists nbl. exists h. exists e.
- intuition.  
- rewrite H3.
- rewrite H4.
- simpl.
+ destruct H14 as [l [ c H141]].
+ exists nba; exists t; exists p; exists np; exists bl; exists nbl; exists h; exists e.
+ intuition.
  left.
+ rewrite H1.
+ rewrite H.
+ simpl.
  omega.
 Qed.
 
-Lemma ACT_Elect_SanityCheck_App : SanityCheck_Elect_App ACT_Elect.
+Lemma UnionElect_SanityCheck_App : SanityCheck_Elect_App Union_elect.
 Proof.
- unfold SanityCheck_Elect_App. 
+ unfold SanityCheck_Elect_App.
  intros.
- unfold ACT_Elect.
- specialize (constructing_electable_first).
+ unfold Union_elect.
+ specialize (constructing_electable_first).  
  intro H1.
  destruct X as [c [X1 X2]].
  assert (Hyp: length (proj1_sig e) < st).
- omega. 
+ omega.
  specialize (H1 e (hd nty t) h quota Hyp (proj2_sig h)).
  destruct H1 as [listElected H11].
  destruct H11 as [H111 [H112 [H113 [H114 H115]]]].
@@ -405,68 +408,67 @@ Proof.
  assert (Assum: length ((proj1_sig e) ++ listElected) <= st).
  rewrite app_length.
  omega.
- exists (state ([], t, fun c => update_pile_ManualACT p (hd nty t) listElected quota c, 
-((fst bl) ++ listElected, snd bl), exist _ ((proj1_sig e) ++ listElected) Assum, 
-                                   exist _ (Removel listElected (proj1_sig h)) NoDupH)). 
- exists t. exists p. exists (fun x => update_pile_ManualACT p (hd nty t) listElected quota x).
+ exists (state ([], t, fun c => update_pile p t listElected quota c, ((fst bl) ++ listElected, snd bl), 
+ exist _ ((proj1_sig e) ++ listElected) Assum, exist _ (Removel listElected (proj1_sig h)) NoDupH)).
+ exists t. exists p. exists (fun x => update_pile p t listElected quota x).
  exists bl. exists ((fst bl) ++ listElected, snd bl). exists (exist _ (Removel listElected (proj1_sig h)) NoDupH).
- exists h. exists e. exists (exist (fun v => length v <= st) ((proj1_sig e) ++ listElected) Assum).
+ exists h. exists e. exists (exist (fun v => length v <= st) ((proj1_sig e) ++ listElected) Assum). 
  split. auto.
  exists listElected.
  intuition.
- assert (NonEmptyElected: length listElected = 0).
+ assert (NonEmptyElected: length listElected = 0). 
  rewrite H2.
  simpl. reflexivity.
  assert (VacantSeat: length (listElected) < st - (length (proj1_sig e))).
  rewrite app_length in Assum.
  rewrite NonEmptyElected in Assum.
  omega.
- specialize (H115 c).
- intuition. 
+ specialize (H115 c). 
+ intuition.
  rewrite H2 in H3.
- inversion H3. 
+ inversion H3.
  simpl.
  unfold Leqe.
  apply Permutation_App.
  apply (nodup_permutation).
  intros candid HypCand. 
  specialize (H111 candid HypCand).
- intuition. 
- assumption.
+ intuition.
+ assumption. 
  apply (proj2_sig h).
  simpl.
  unfold Leqe.
  apply Permutation_refl.
- unfold update_pile_ManualACT.
- destruct (cand_in_dec c0 listElected) as [i |j].
- trivial. 
+ unfold update_pile.
+ destruct (cand_in_dec c0 listElected) as [i | j].
+ trivial.
  contradict j. assumption.
- unfold update_pile_ManualACT.
+ unfold update_pile.
  destruct (cand_in_dec c0 listElected) as [i |j].
  contradict i.
  assumption.
- auto. 
+ auto.
 Qed.
 
-Lemma ACT_Elect_SanityCheck_Red : SanityCheck_Elect_Red ACT_Elect.
+Lemma UnionElect_SanityCheck_Red : SanityCheck_Elect_Red Union_elect.
 Proof.
  unfold SanityCheck_Elect_Red.
  intros.
- unfold ACT_Elect in H.
+ unfold Union_elect in H.
  destruct H as [t [p [np [bl [nbl [nh [h [e [ne H1]]]]]]]]].
  exists t. exists p; exists np. exists bl. exists nbl. exists e. exists ne. exists nh. exists h. 
  destruct H1 as [H11 H12].
  destruct H12 as [l H121].
  intuition.
- unfold Leqe in H4.
+ unfold Leqe in H4.  
  specialize (Permutation_length H4). intro Permut_length.
  rewrite Permut_length.
  rewrite  app_length.
  specialize (list_nonempty_type cand l H1). intro.
  destruct X as [c [l' HX]].
  rewrite HX.
- simpl.  
- omega.  
+ simpl. 
+ omega.
  unfold Leqe in H5.
  specialize (Permutation_length H5). intro.
  rewrite H8.
@@ -546,6 +548,7 @@ Proof.
  omega.
  auto.
 Qed.
+
 
 Hypothesis Bl_NoDup : forall j: FT_Judgement, forall ba t p bl e h, 
   j = state (ba,t,p,bl,e,h) -> NoDup (snd bl).
@@ -658,15 +661,14 @@ Proof.
  auto.
 Qed.
 
-
 Definition ActSTV := (mkSTV (quota)  
     (Union_InitStep) (UnionInitStep_SanityCheck_App) (UnionInitStep_SanityCheck_Red) 
     (Union_count) (UnionCount_SanityCheck_App) (UnionCount_SanityCheck_Red)
     (ACT_TransferElected) (ACT_TransferElected_SanityCheck_App) (ACT_TransferElected_SanityCheck_Red)
     (VicTas_TransferElected2) (VicTasTran2_SanityCheck_App) (VicTasTran2_SanityCheck_Red)
     (VicTas_TransferElim) (VicTas_TransferElim_SanityCheck_App) (VicTas_TransferElim_SanityCheck_Red)
-    (ACT_Elect) (ACT_Elect_SanityCheck_App) (ACT_Elect_SanityCheck_Red)
-    (Union_elim) (UnionElim_SanityCheck_App) (UnionElim_SanityCheck_Red)
+    (Union_elect) (UnionElect_SanityCheck_App) (UnionElect_SanityCheck_Red)
+    (VIC_elim) (VicElim_SanityCheck_App) (VicElim_SanityCheck_Red)
     (Union_hwin) (UnionHwin_SanityCheck_App) (UnionHwin_SanityCheck_Red)
     (Union_ewin) (UnionEwin_SanityCheck_App) (UnionEwin_SanityCheck_Red)).
 
@@ -681,4 +683,4 @@ Qed.
 Definition Act_Termination := Termination (initial (Filter bs)) init_stages_R_initial ActSTV.
 
 
-End ACT.
+End VIC.

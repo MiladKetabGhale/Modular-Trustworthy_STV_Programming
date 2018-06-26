@@ -47,6 +47,7 @@ Notation "'existsT' x .. y , p" := (sigT (fun x => .. (sigT (fun y => p)) ..))
 Close Scope Q_scope.
 
 Variable cand: Type.
+
 Variable cand_all: list cand.
 Hypothesis cand_nodup: NoDup cand_all.
 Hypothesis cand_finite: forall c, In c cand_all.
@@ -253,7 +254,7 @@ Proof.
  auto.
 Qed.
 
-Module Base.
+(*Module Base.*)
 
 Definition length_empty: length ([]:list cand) <= st.
 Proof.
@@ -1409,9 +1410,9 @@ Proof.
 Qed. 
 
 End Generic_Machine.
-
+(*
 Section Base_Proofs.
-
+*)
 (* relation for `first continuing candidate' on a ballot in the list of ballots requiring attention *)
 Definition fcc (ba : list ballot) (h : list cand) (c : cand) (b : ballot): Prop := 
   In (proj1_sig (fst b)) ((map (fun (d:ballot) => (proj1_sig (fst d)))) ba) /\
@@ -2591,8 +2592,9 @@ Proof.
  assumption.
 Qed.
 
+(*
 End Base_Proofs.
-
+*)
 (*
 Section ANUnion.
 
@@ -3733,10 +3735,11 @@ Definition ManualACT_Termination :=
         Termination (initial (Filter bs)) init_stages_R_initial ManualACT_STV.
 *)
 *)
-
+(*
 End Base.
-
+*)
 End TopBase.
+
 (*
 Extraction Language Haskell.
 Extraction "Lib.hs" Act_Termination.
