@@ -31,26 +31,11 @@ Require Export Instantiation.
 Import Instantiate.
 Import M.
 Import QSort.
-(*Require Import MyBase.*)
-(*Import TopBase.*)
+
 
 Module AnuUnion.
 
 Section ANUnion.
-(*
-Variable cand: Type.
-Variable cand_all: list cand.
-Hypothesis cand_nodup: NoDup cand_all.
-Hypothesis cand_finite: forall c, In c cand_all.
-Hypothesis cand_eq_dec: forall c d:cand, {c=d} + {c<>d}.
-Hypothesis cand_in_dec: forall c : cand, forall l : list cand, {In c l} + {~In c l}.
-(* a ballot is a permutation of the list of candidates and a transfer balue *)
-Definition ballot :=  ({v : list cand | (NoDup v) /\ ( [] <> v)} * Q).
-Variable bs : list ballot.
-Variable st : nat. 
-Variable quota : Q.
-*)
-
 
 Definition Union_InitStep (prem :FT_Judgement) (conc :FT_Judgement): Prop :=
  exists ba ba',  
@@ -462,7 +447,7 @@ Proof.
 Qed.
 
 
-Definition VicTas_TransferElected2 (prem: FT_Judgement) (conc: FT_Judgement) :=
+Definition Union_TransferElected2 (prem: FT_Judgement) (conc: FT_Judgement) :=
  exists nba t p np bl nbl h e,         
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
@@ -476,11 +461,11 @@ Definition VicTas_TransferElected2 (prem: FT_Judgement) (conc: FT_Judgement) :=
      (forall d, d <> c -> np(d) = p(d))) /\    
    conc = state (nba, t, np, nbl, e, h). 
 
-Lemma VicTasTran2_SanityCheck_App : SanityCheck_Transfer2_App VicTas_TransferElected2. 
+Lemma UnionTran2_SanityCheck_App : SanityCheck_Transfer2_App Union_TransferElected2. 
 Proof.
  unfold SanityCheck_Transfer2_App.
  intros. 
- unfold VicTas_TransferElected2.
+ unfold Union_TransferElected2.
  destruct H0 as [H1 [H2 [H3 H4]]].
  specialize (list_nonempty_type cand bl1 H2). intro Nonempty_bl.
  destruct Nonempty_bl as [Headbl1 [Tailbl1 bl1None]].
@@ -503,11 +488,11 @@ Proof.
  reflexivity.
 Qed.
 
-Lemma VicTasTran2_SanityCheck_Red : SanityCheck_Transfer_Red VicTas_TransferElected2.
+Lemma UnionTran2_SanityCheck_Red : SanityCheck_Transfer_Red Union_TransferElected2.
 Proof.
  unfold SanityCheck_Transfer_Red.
  intros.
- unfold VicTas_TransferElected2 in H.
+ unfold Union_TransferElected2 in H.
  destruct H as [nba [t [p [np [bl [nbl [h [e H1]]]]]]]].
  destruct H1 as [H11 [H12 [H13 H14]]].
  destruct H14 as [Tbl1 [Hbl1 [Hbl2 [Tbl2 H15]]]].
@@ -546,7 +531,7 @@ Proof.
 Qed.
 
 
-Definition VicTas_TransferElim (prem: FT_Judgement) (conc: FT_Judgement) :=
+Definition Union_TransferElim (prem: FT_Judgement) (conc: FT_Judgement) :=
  exists nba t p np bl nbl h e,         
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
@@ -565,12 +550,12 @@ Hypothesis Bl_NoDup : forall j: FT_Judgement, forall ba t p bl e h,
   j = state (ba,t,p,bl,e,h) -> NoDup (snd bl).
 
 
-Lemma VicTas_TransferElim_SanityCheck_App : SanityCheck_Transfer3_App VicTas_TransferElim.
+Lemma Union_TransferElim_SanityCheck_App : SanityCheck_Transfer3_App Union_TransferElim.
 Proof.
  unfold SanityCheck_Transfer3_App.
  intros.
  destruct H0 as [H1 [H2 [H3 H4]]].
- unfold VicTas_TransferElim.
+ unfold Union_TransferElim.
  exists (state (((last (groupbysimple _ (sort (concat (p c)))) []): list ballot),
  t, fun d => if (cand_eq_dec d c) then (removelast (groupbysimple _ (sort (concat (p c))))) else p d, (bl1, c::bl2), e, h)). 
  exists (last (groupbysimple _ (sort (concat (p c)))) []). 
@@ -596,11 +581,11 @@ Proof.
   simpl. rewrite IH; apply app_assoc.
 Qed.
  
-Lemma VicTas_TransferElim_SanityCheck_Red: SanityCheck_Transfer_Red VicTas_TransferElim.
+Lemma Union_TransferElim_SanityCheck_Red: SanityCheck_Transfer_Red Union_TransferElim.
 Proof.
  unfold SanityCheck_Transfer_Red. 
  intros.
- unfold VicTas_TransferElim in H.
+ unfold Union_TransferElim in H.
  destruct H as [nba [t [p [np [bl [nbl [h [e H1]]]]]]]].
  destruct H1 as [H11 [H12 [H13 H14]]].
  destruct H14 as [Tbl1 [Hbl1 [Hbl2 [Tbl2 H15]]]].
@@ -674,16 +659,12 @@ Qed.
 
 Variable bs: list ballot. 
 
-(*
-Definition Union_quota := 
- (((inject_Z (Z.of_nat (length (Filter bs)))) / (1 + inject_Z (Z.of_nat st)) + 1)%Q). 
-*)
 Definition UnionSTV := (mkSTV (quota)  
     (Union_InitStep) (UnionInitStep_SanityCheck_App) (UnionInitStep_SanityCheck_Red) 
     (Union_count) (UnionCount_SanityCheck_App) (UnionCount_SanityCheck_Red)
     (Union_transfer) (UnionTransfer_SanityCheck_App) (UnionTransfer_SanityCheck_Red)
-    (VicTas_TransferElected2) (VicTasTran2_SanityCheck_App) (VicTasTran2_SanityCheck_Red)
-    (VicTas_TransferElim) (VicTas_TransferElim_SanityCheck_App) (VicTas_TransferElim_SanityCheck_Red)
+    (Union_TransferElected2) (UnionTran2_SanityCheck_App) (UnionTran2_SanityCheck_Red)
+    (Union_TransferElim) (Union_TransferElim_SanityCheck_App) (Union_TransferElim_SanityCheck_Red)
     (Union_elect) (UnionElect_SanityCheck_App) (UnionElect_SanityCheck_Red)
     (Union_elim) (UnionElim_SanityCheck_App) (UnionElim_SanityCheck_Red)
     (Union_hwin) (UnionHwin_SanityCheck_App) (UnionHwin_SanityCheck_Red)
