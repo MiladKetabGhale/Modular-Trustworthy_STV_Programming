@@ -236,8 +236,7 @@ Lemma ACTCount_SanityCheck_Red: SanityCheck_Count_Red ACT_count.
  rewrite H. auto.
 Qed.
 
-Lemma  ACTHwin_SanityCheck_App : SanityCheck_Hwin_App ACT_hwin.                           
-Proof.
+Lemma  ACTHwin_SanityCheck_App : SanityCheck_Hwin_App ACT_hwin.                 Proof.
  unfold SanityCheck_Hwin_App.
  intros.
  unfold ACT_hwin.
