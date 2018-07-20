@@ -26,7 +26,7 @@ Require Import Program.
 Require Import  Recdef.
 (*Add LoadPath "/home/users/u5711205/Downloads/Testing_Modularity/".*)
 Require Export Parameters.
-Require Import FrameBase1.
+Require Import FrameBase.
 Require Export Instantiation.
 Import Instantiate.
 Import M.
