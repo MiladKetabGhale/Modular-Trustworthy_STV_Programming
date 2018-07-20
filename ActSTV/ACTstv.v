@@ -25,7 +25,7 @@ Require Import Coq.Arith.Wf_nat.
 Require Import Program.
 Require Import  Recdef.
 Require Export Parameters.
-Require Import FrameBase.
+Require Import FrameBase1.
 Require Export Instantiation.
 Import Instantiate.
 Import M.
