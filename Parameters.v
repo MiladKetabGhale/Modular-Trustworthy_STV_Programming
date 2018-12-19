@@ -27,16 +27,14 @@ Require Import  Recdef.
 *)
 
 Module Type Params. 
-(*
-(* notation for type level existential quantifier *)
-Notation "'existsT' x .. y , p" := (sigT (fun x => .. (sigT (fun y => p)) ..))
-  (at level 200, x binder, right associativity,
-   format "'[' 'existsT' '/ ' x .. y , '/ ' p ']'")
-  : type_scope.
-*)
+
 Close Scope Q_scope.
 
-Parameter cand: Type.
+
+Parameter st : nat. 
+Parameter quota : Q.
+Parameter cand : Type.
+Parameter ValidBallot : list cand -> bool.
 
 Parameter cand_all: list cand.
 Parameter cand_nodup: NoDup cand_all.
@@ -44,15 +42,6 @@ Parameter cand_finite: forall c, In c cand_all.
 Parameter cand_eq_dec: forall c d:cand, {c=d} + {c<>d}.
 Parameter cand_in_dec: forall c : cand, forall l : list cand, {In c l} + {~In c l}.
 
-
-(* a ballot is a permutation of the list of candidates and a transfer balue *)
-(*
-Definition ballot := 
-({v : list cand | (NoDup v) /\ ( [] <> v)} * Q).
-Parameter bs : list ballot.
-*)
-Parameter st : nat. 
-Parameter quota : Q.
 
 End Params.
 
