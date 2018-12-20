@@ -27,13 +27,16 @@ Require Import FrameBase.
 Import FrameBase.
 
 Inductive Cand := Alice | Bob | Charlie.
-
 Module Instantiate.
-
 Definition cand := Cand.
 Definition cand_all := [Alice;Bob;Charlie].
 Definition st := (1)%nat.
 Definition qu := (8 # 3)%Q.
+Definition ValidBallot l :=    
+    match l with
+      [] => false
+     |_ => if (5 <= length l) && nodup_elem l then true else false
+    end.
 
 Lemma cand_nodup : NoDup cand_all.
 Proof.
@@ -86,10 +89,8 @@ Definition st := (1)%nat.
 Definition quota := (2 # 1)%Q.
 *)
 
-Definition filter_function b := 
-   if proj1_sig (fst b)  then true else false.
 
-Definition filter ballots 
+      
 
 End Instantiate.
 
