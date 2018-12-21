@@ -579,16 +579,16 @@ Qed.
 Inductive FT_Judgement :=
  initial:
      list ballot -> FT_Judgement 
- |state:                                   (** intermediate states **)
-    list ballot                            (* uncounted votes *)
-    * list (X.cand -> Q)                          (* tally *)
-    * (X.cand -> list (list ballot))                (* pile of ballots for each candidate*)
-    * ((list X.cand) * (list X.cand))                             (* backlog of candidates requiring transfer *)
-    * {elected: list X.cand | length  elected <= X.st}            (* elected candidates no longer in the running *)
-    * {hopeful: list X.cand | NoDup hopeful}                    (* hopeful candidates still in the running *)
+ |state:                                                (** intermediate states **)
+    list ballot                                          (* uncounted votes *)
+    * list (X.cand -> Q)                                 (* tally *)
+    * (X.cand -> list (list ballot))                     (* pile of ballots for each candidate*)
+    * ((list X.cand) * (list X.cand))                    (* backlog of candidates requiring transfer *)
+    * {elected: list X.cand | length  elected <= X.st}   (* elected candidates *)
+    * {hopeful: list X.cand | NoDup hopeful}             (* continuing candidates *)
       -> FT_Judgement
- | winners:                                                   (** final state **)
-      list X.cand -> FT_Judgement.                              (* election winners *)
+ | winners:                                             (** final state **)
+      list X.cand -> FT_Judgement.                       (* election winners *)
 
 Definition FT_final (a : FT_Judgement) : Prop :=
  exists w, a = winners (w).
@@ -618,7 +618,7 @@ Qed.
 (* Rules *)
 Definition FT_Rule := FT_Judgement -> FT_Judgement -> Prop.
 
-(* well founded order *)
+(* The set (nat)^5 to be used as the set on which we impose a lexicographic order *)
 Definition FT_WFO := nat * (nat * (nat * (nat * nat))). 
 
 Definition dep2 := sigT (A:= nat) (fun a => nat).
@@ -687,7 +687,7 @@ red in |-*; apply wf_lexprod. apply lt_wf. intro r.
 apply lt_wf.
 Qed.
 
-(*imposing an ordering on judgements*)
+(* imposing a well-found ordering on (nat)^5 *)
 Definition FT_wfo : FT_WFO -> FT_WFO -> Prop := (fun x y : nat * (nat * (nat * (nat * nat))) => 
  lt_mnpqr (mk5 x) (mk5 y)).
 
@@ -699,29 +699,19 @@ Qed.
 
 
 
-(* measure function maps to ({0,1},length h, length bl, length ba) *)
+(* measure function maps to ({0,1},length h, Sum (map (\.c -> length (concat p c)) snd bl), length bl, length ba) *)
 Definition FT_m: { j: FT_Judgement | not (FT_final j) } -> FT_WFO.
- intro H. 
- destruct H as [j ej]. 
- destruct j.
- split. 
- exact 1.
- split.
- exact 0. split. exact 0. split. exact 0. exact 0.
+ intro H. destruct H as [j ej]. destruct j.
+ split. exact 1.
+ split. exact 0. split. exact 0. split. exact 0. exact 0.
  destruct p as [[[[[ba t] p] bl] e] h].
- split.
- exact 0.
- split.
- exact (length (proj1_sig h)).
- split.
- exact (Sum_nat (map (fun c => length (concat (p c))) (snd bl)))%nat.
- split.
- exact (length (fst bl)).
- exact (length ba).
+ split. exact 0.
+ split. exact (length (proj1_sig h)).
+ split. exact (Sum_nat (map (fun c => length (concat (p c))) (snd bl)))%nat.
+ split. exact (length (fst bl)). exact (length ba).
  contradiction ej.
  unfold FT_final. 
- exists l.
- reflexivity.
+ exists l. reflexivity.
 Defined.
 
 (* lexicographic order behaves as expected *)
