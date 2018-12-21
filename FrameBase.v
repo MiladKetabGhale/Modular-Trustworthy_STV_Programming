@@ -576,9 +576,9 @@ Qed.
 (*Section Generic_Machine.*)
 
 (* initial, intermediate and final states in vote counting *)
-Inductive FT_Judgement :=
+Inductive Machine_States :=
  initial:
-     list ballot -> FT_Judgement 
+     list ballot -> Machine_States 
  |state:                                                (** intermediate states **)
     list ballot                                          (* uncounted votes *)
     * list (X.cand -> Q)                                 (* tally *)
@@ -586,40 +586,40 @@ Inductive FT_Judgement :=
     * ((list X.cand) * (list X.cand))                    (* backlog *)
     * {elected: list X.cand | length  elected <= X.st}   (* elected candidates *)
     * {hopeful: list X.cand | NoDup hopeful}             (* continuing candidates *)
-      -> FT_Judgement
+      -> Machine_States
  | winners:                                             (** final state **)
-      list X.cand -> FT_Judgement.                       (* election winners *)
+      list X.cand -> Machine_States.                       (* election winners *)
 
-Definition FT_final (a : FT_Judgement) : Prop :=
+Definition State_final (a : Machine_States) : Prop :=
  exists w, a = winners (w).
 
-Definition FT_initial (a : FT_Judgement) : Prop :=
+Definition State_initial (a : Machine_States) : Prop :=
  exists (ba : list ballot), a = initial (ba).
 
-Lemma final_dec: forall j : FT_Judgement, (FT_final j) + (not (FT_final j)).
+Lemma final_dec: forall j : Machine_States, (State_final j) + (not (State_final j)).
 Proof. 
  intro j. 
   destruct j;
-   repeat (right;unfold FT_final;unfold not;intro H;destruct H;discriminate) 
+   repeat (right;unfold State_final;unfold not;intro H;destruct H;discriminate) 
      || 
-       left;unfold FT_final;exists l;reflexivity.
+       left;unfold State_final;exists l;reflexivity.
 Defined.
 
-Lemma initial_dec: forall j: FT_Judgement, (FT_initial j) + not (FT_initial j).
+Lemma initial_dec: forall j: Machine_States, (State_initial j) + not (State_initial j).
 Proof.
  intro j.
   destruct j;
-    repeat (left;unfold FT_initial;exists l;reflexivity)
+    repeat (left;unfold State_initial;exists l;reflexivity)
         ||
           (right;intro H;inversion H; discriminate).
 Qed.        
  
 
 (* Rules *)
-Definition FT_Rule := FT_Judgement -> FT_Judgement -> Prop.
+Definition FT_Rule := Machine_States -> Machine_States -> Prop.
 
 (* The set (nat)^5 to be used as the set on which we impose a lexicographic order *)
-Definition FT_WFO := nat * (nat * (nat * (nat * nat))). 
+Definition Product_Five_NatSet := nat * (nat * (nat * (nat * nat))). 
 
 Definition dep2 := sigT (A:= nat) (fun a => nat).
 Definition dep3 := sigT (A:= nat) (fun a => dep2).
@@ -688,11 +688,11 @@ apply lt_wf.
 Qed.
 
 (* imposing a well-found ordering on (nat)^5 *)
-Definition FT_wfo : FT_WFO -> FT_WFO -> Prop := (fun x y : nat * (nat * (nat * (nat * nat))) => 
+Definition Order_NatProduct : Product_Five_NatSet -> Product_Five_NatSet -> Prop := (fun x y : nat * (nat * (nat * (nat * nat))) => 
  lt_mnpqr (mk5 x) (mk5 y)).
 
-Lemma FT_wfo_wf : well_founded FT_wfo.
- unfold FT_wfo. 
+Lemma Order_NatProduct_wf : well_founded Order_NatProduct.
+ unfold Order_NatProduct. 
  apply wf_inverse_image.
  apply wf_Lexprod2.
 Qed.
@@ -700,7 +700,7 @@ Qed.
 
 
 (* measure function maps to ({0,1},length h, Sum (map (\.c -> length (concat p c)) snd bl), length bl, length ba) *)
-Definition FT_m: { j: FT_Judgement | not (FT_final j) } -> FT_WFO.
+Definition Measure_States: { j: Machine_States | not (State_final j) } -> Product_Five_NatSet.
  intro H. destruct H as [j ej]. destruct j.
  split. exact 1.
  split. exact 0. split. exact 0. split. exact 0. exact 0.
@@ -710,7 +710,7 @@ Definition FT_m: { j: FT_Judgement | not (FT_final j) } -> FT_WFO.
  split. exact (Sum_nat (map (fun c => length (concat (p c))) (snd bl)))%nat.
  split. exact (length (fst bl)). exact (length ba).
  contradiction ej.
- unfold FT_final. 
+ unfold State_final. 
  exists l. reflexivity.
 Defined.
 
@@ -750,7 +750,7 @@ Proof.
  destruct H2 as [H21 [H22 [H23 [H24 H25]]]]. subst. repeat apply right_lex. assumption.
 Qed.
 
-Definition mk_nfj: forall j: FT_Judgement, forall e: not (FT_final j), { j : FT_Judgement | not (FT_final j) }.
+Definition IsNonFinal: forall j: Machine_States, forall e: not (State_final j), { j : Machine_States | not (State_final j) }.
   intros j e. exists j. assumption.
 Defined.
 
@@ -758,7 +758,7 @@ Defined.
 
 
 (*
-Definition Is_Legitimate_Elim_two (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition Is_Legitimate_Elim_two (R: Machine_States -> Machine_States -> Prop) :=
    (forall premise, forall t p e h r, (premise = state ([],t, p, [], e, h, r)) ->
      (exists c, In c r /\
        (p c) <> [] ) -> exists conc, R premise conc)  *
@@ -769,10 +769,10 @@ Definition Is_Legitimate_Elim_two (R: FT_Judgement -> FT_Judgement -> Prop) :=
      (forall d, d <> c -> length (np d) = length (p d)) /\   
      (conclusion = state (nba, t, np, [], e, h, r))).
 
-Lemma dec_ElimTwo : forall R (p c : FT_Judgement),
- (Is_Legitimate_Elim_two R) -> R p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_ElimTwo : forall R (p c : Machine_States),
+ (Is_Legitimate_Elim_two R) -> R p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
 intros R p c ss Hr ep ec.
 unfold Is_Legitimate_Elim_two in ss.
@@ -787,9 +787,9 @@ destruct c. inversion Hs34.
 destruct p as [[[[[[ba11 t11] p11] bl11] e11] h11] r11].
 destruct p1 as [[[[[[ba22 t22] p22] bl22] e22] h22] r22].
 inversion Hs1. inversion Hs34. subst.
-unfold FT_m.
+unfold Measure_States.
 simpl.
-unfold FT_wfo.
+unfold Order_NatProduct.
 rewrite wfo_aux.
 right;left. split. auto.
 assert (hypo: forall d, d <> weak -> length (p0 d) = length (np d)).
@@ -803,21 +803,21 @@ inversion Hs34.
 inversion Hs1.
 Qed.
 *) 
-Definition SanityCheck_Initial_App (R : FT_Judgement -> FT_Judgement -> Prop) :=  
+Definition SanityCheck_Initial_App (R : Machine_States -> Machine_States -> Prop) :=  
   forall premise, forall ba, (premise = initial ba) -> existsT conclusion,
      (conclusion = state (Filter ba, [nty], nas, (nbdy,nbdy), emp_elec, all_hopeful)) *  
       R premise conclusion.
 
-Definition SanityCheck_Initial_Red (R : FT_Judgement -> FT_Judgement -> Prop) := 
+Definition SanityCheck_Initial_Red (R : Machine_States -> Machine_States -> Prop) := 
   forall p c, R p c -> exists ba ba' t ass bl e h, (p = initial ba) /\
   (c = state (ba', t, ass, bl, e, h)).
 
-Definition SanityCheck_Count_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Count_App (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise, forall ba t p  bl h e , (premise = state (ba, t, p ,bl ,e, h)) -> (ba <> []) ->
     existsT conclusion, (R premise conclusion)).
 
-Definition SanityCheck_Count_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
- (forall (p: FT_Judgement) (c: FT_Judgement), R p c -> exists ba1 ba2 t1 t2 p1 p2 bl e h, 
+Definition SanityCheck_Count_Red (R: Machine_States -> Machine_States -> Prop) :=
+ (forall (p: Machine_States) (c: Machine_States), R p c -> exists ba1 ba2 t1 t2 p1 p2 bl e h, 
    (p = state (ba1, t1, p1, bl, e, h)) /\ 
    (c = state (ba2, t2 :: t1, p2, bl, e, h)) /\ 
    ( length ba2 < length ba1) /\
@@ -831,25 +831,25 @@ Definition Is_empty (l : list cand) :=
 end.
 *)
 (* note that I have put the null tally as the default value for head in case of empty list *)
-Definition SanityCheck_Transfer1_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Transfer1_App (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise, forall t p (bl: (list X.cand) * (list X.cand)) e h, 
  (premise = state ([], t, p, (fst bl, []), e, h)) -> (length (proj1_sig e) < X.st) /\ 
  (fst bl <> []) /\ (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) -> 
     existsT conc, R premise conc).
 
-Definition SanityCheck_Transfer2_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Transfer2_App (R: Machine_States -> Machine_States -> Prop) :=
  forall premise, forall t p bl1 bl2 c e h , (premise = state ([], t, p, (bl1, c::bl2), e, h)) ->
  (length (proj1_sig e) < X.st) /\ (bl1 <> []) /\ (concat (p c) = []) /\ 
  (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) ->
      existsT conc, R premise conc.
 
-Definition SanityCheck_Transfer3_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Transfer3_App (R: Machine_States -> Machine_States -> Prop) :=
  forall premise, forall t p bl1 bl2 c e h , (premise = state ([], t, p, (bl1, c::bl2), e, h)) ->
  (length (proj1_sig e) < X.st) /\ (bl1 <> []) /\ (concat (p c) <> []) /\ 
  (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) ->
      existsT conc, R premise conc.
 
-Definition SanityCheck_Transfer_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Transfer_Red (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise conclusion, R premise conclusion ->
    exists nba t p np bl nbl h e,
    (premise = state ([], t, p, bl, e, h)) /\
@@ -868,13 +868,13 @@ Definition SanityCheck_Transfer_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
  /\
    (conclusion = state (nba, t, np, nbl, e, h))). 
 
-Definition SanityCheck_Elect_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Elect_App (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise, forall t p bl e h, (premise = state ([], t, p, bl, e, h)) ->
      (existsT (c: X.cand), 
      (length (proj1_sig e)) + 1 <= X.st /\  
      In c (proj1_sig h) /\ ((hd nty t) (c) >= X.quota)%Q) -> existsT conc, R premise conc).
 
-Definition SanityCheck_Elect_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Elect_Red (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise conclusion, R premise conclusion ->
      exists t p np bl nbl e ne nh h, 
      (premise = state ([], t, p, bl, e, h)) /\
@@ -882,35 +882,35 @@ Definition SanityCheck_Elect_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
           (length (proj1_sig e) < length (proj1_sig ne)) /\
      (conclusion = state ([], t, np, nbl, ne, nh))).
 
-Definition SanityCheck_Elim_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Elim_App (R: Machine_States -> Machine_States -> Prop) :=
   (forall premise, forall t p e h bl2, (premise = state ([], t, p, ([], bl2), e, h)) ->
      length (proj1_sig e) + length (proj1_sig h) > X.st /\
      (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) -> existsT conc, R premise conc).
 
-Definition SanityCheck_Elim_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Elim_Red (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise conclusion, R premise conclusion ->
      exists nba t p np e h nh bl2 nbl2,
      (premise = state ([], t, p, ([], bl2), e, h)) /\
      length (proj1_sig nh) < length (proj1_sig h) /\
      (conclusion = state (nba, t, np, ([], nbl2), e, nh))).
 
-Definition SanityCheck_Hwin_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Hwin_App (R: Machine_States -> Machine_States -> Prop) :=
   (forall premise, forall ba t p bl e h, (premise = state (ba, t, p, bl, e, h)) ->
      length (proj1_sig e) + (length (proj1_sig h)) <= X.st -> existsT conc, R premise conc).
 
 
-Definition SanityCheck_Hwin_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Hwin_Red (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise conclusion, R premise conclusion ->
      exists w ba t p bl e h,
       (premise = state (ba, t, p, bl, e, h)) /\
       w = (proj1_sig e) ++ (proj1_sig h) /\ 
       (conclusion = winners w)).
 
-Definition SanityCheck_Ewin_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Ewin_App (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise, forall ba t p bl e h, (premise = state (ba, t, p, bl, e, h)) ->
     length (proj1_sig e) = X.st -> existsT conc, R premise conc).
 
-Definition SanityCheck_Ewin_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Ewin_Red (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise conclusion, R premise conclusion ->
     exists w ba t p bl e h,
     (premise = state (ba, t, p, bl, e, h)) /\
@@ -919,39 +919,39 @@ Definition SanityCheck_Ewin_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
 
 Record STV := 
    mkSTV {qu: Q;
-          initStep: FT_Judgement -> FT_Judgement -> Prop;
+          initStep: Machine_States -> Machine_States -> Prop;
           evidence_applicability_initStep: (SanityCheck_Initial_App initStep);
           evidence_reducibility_initStep: (SanityCheck_Initial_Red initStep);
-          count: FT_Judgement -> FT_Judgement -> Prop;
+          count: Machine_States -> Machine_States -> Prop;
           evidence_applicability_count: (SanityCheck_Count_App count);
           evidence_reducibility_count: (SanityCheck_Count_Red count);    
-          transfer1_elected: FT_Judgement -> FT_Judgement -> Prop;
+          transfer1_elected: Machine_States -> Machine_States -> Prop;
           evidence_applicability_transfer1: (SanityCheck_Transfer1_App transfer1_elected);
           evidence_reducibility_transfer1: (SanityCheck_Transfer_Red transfer1_elected);
-          transfer2_elected: FT_Judgement -> FT_Judgement -> Prop;
+          transfer2_elected: Machine_States -> Machine_States -> Prop;
           evidence_applicability_transfer2_elected: (SanityCheck_Transfer2_App transfer2_elected);
           evidence_reducibility_transfer2_elected: (SanityCheck_Transfer_Red transfer2_elected);
-          transfer_elim: FT_Judgement -> FT_Judgement -> Prop;
+          transfer_elim: Machine_States -> Machine_States -> Prop;
           evidence_applicability_transfer2: (SanityCheck_Transfer3_App transfer_elim);
           evidence_reducibility_transfer2: (SanityCheck_Transfer_Red transfer_elim);
-          elect: FT_Judgement -> FT_Judgement -> Prop;
+          elect: Machine_States -> Machine_States -> Prop;
           evidence_applicability_elect: (SanityCheck_Elect_App elect);
           evidence_reducibility_elect: (SanityCheck_Elect_Red elect);
-          elim: FT_Judgement -> FT_Judgement -> Prop;
+          elim: Machine_States -> Machine_States -> Prop;
           evidence_applicability_elim: (SanityCheck_Elim_App elim);
           evidence_reducibility_elim: (SanityCheck_Elim_Red elim);
-          hwin: FT_Judgement -> FT_Judgement -> Prop;
+          hwin: Machine_States -> Machine_States -> Prop;
           evidence_applicability_hwin: (SanityCheck_Hwin_App hwin);
           evidence_reducibility_hwin: (SanityCheck_Hwin_Red hwin);         
-          ewin: FT_Judgement -> FT_Judgement -> Prop;
+          ewin: Machine_States -> Machine_States -> Prop;
           evidence_applicability_ewin: (SanityCheck_Ewin_App ewin);
           evidence_reducibility_ewin: (SanityCheck_Ewin_Red ewin)}.
 
 (* beginning of measure decreasing proof for new formalised rules*)
-Lemma dec_Initial : forall (s: STV) (p c : FT_Judgement),
- initStep s p c  -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Initial : forall (s: STV) (p c : Machine_States),
+ initStep s p c  -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof. 
  intros s p c H ep ec.
  destruct s. 
@@ -964,23 +964,23 @@ Proof.
  destruct H0 as [ba [ba' [t [ass [bl [e [h [Hev21 Hev22]]]]]]]].
  inversion Hev22. 
  destruct p as [[[[[ba1 t1] p1] bl1] e1] h1].
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite wfo_aux.
  left;auto.
- contradict ec. unfold FT_final. exists l0. reflexivity.
+ contradict ec. unfold State_final. exists l0. reflexivity.
  specialize (evidence_reducibility_initStep0 (state p) c).
  intuition.
  destruct H0 as [ba [ba' [t [ass [bl [e1 [h1 [Hev21 Hev22]]]]]]]].
  inversion Hev21.
- contradict ep. unfold FT_final. exists l. auto.
+ contradict ep. unfold State_final. exists l. auto.
 Qed.
 
-Lemma dec_Count : forall (s: STV) (p c : FT_Judgement),
- count s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Count : forall (s: STV) (p c : Machine_States),
+ count s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s. 
@@ -995,23 +995,23 @@ Proof.
  inversion Hev22.
  destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
  destruct p0 as [[[[[ba22 t22] p22] bl22] e22] h22].
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite -> wfo_aux.
  inversion Hev22. inversion Hev211. subst. 
  right. right. right. right.
  split. auto.
  split.  auto. rewrite Hev24. auto.
  contradict ec.
- unfold FT_final. exists l. reflexivity.
+ unfold State_final. exists l. reflexivity.
  contradict ep. exists l. auto.
 Qed.
 
-Lemma dec_TransferElected1 : forall (s: STV) (p c : FT_Judgement),
- transfer1_elected s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_TransferElected1 : forall (s: STV) (p c : Machine_States),
+ transfer1_elected s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s. 
@@ -1026,21 +1026,21 @@ Proof.
  destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
  destruct p1 as [[[[[ba22 t22] p22] bl22] e22] h22].
  inversion Hev21. inversion Hev23. subst.
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite -> wfo_aux.
  destruct Hev22 as [Hev221 | Hev222].
  right; right;right; left. intuition.
  right; right; left.  intuition. 
- contradict ec; unfold FT_final; exists l ;auto.
+ contradict ec; unfold State_final; exists l ;auto.
  contradict ep; exists l; auto.
 Qed.
 
-Lemma dec_TransferElected2 : forall (s: STV) (p c: FT_Judgement),
- transfer2_elected s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_TransferElected2 : forall (s: STV) (p c: Machine_States),
+ transfer2_elected s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s. 
@@ -1056,21 +1056,21 @@ Proof.
  destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
  destruct p1 as [[[[[ba22 t22] p22] bl22] e22] h22].
  inversion Hev21. inversion Hev23. subst.
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite -> wfo_aux.
  destruct Hev22 as [Hev221 | Hev222].
  right; right;right; left. intuition.
  right; right; left.  intuition. 
- contradict ec; unfold FT_final; exists l ;auto.
+ contradict ec; unfold State_final; exists l ;auto.
  contradict ep; exists l; auto.
 Qed.
 
-Lemma dec_TransferEliminated : forall (s: STV) (p c : FT_Judgement),
- transfer_elim s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_TransferEliminated : forall (s: STV) (p c : Machine_States),
+ transfer_elim s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s. 
@@ -1085,21 +1085,21 @@ Proof.
  destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
  destruct p1 as [[[[[ba22 t22] p22] bl22] e22] h22].
  inversion Hev21. inversion Hev23. subst.
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite -> wfo_aux.
  destruct Hev22 as [Hev221 | Hev222].
  right; right;right; left. intuition.
  right; right; left.  intuition. 
- contradict ec; unfold FT_final; exists l ;auto.
+ contradict ec; unfold State_final; exists l ;auto.
  contradict ep; exists l; auto.
 Qed.
 
-Lemma dec_Elect : forall (s: STV) (p c : FT_Judgement),
- elect s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Elect : forall (s: STV) (p c : Machine_States),
+ elect s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s.
@@ -1114,19 +1114,19 @@ Proof.
  destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
  destruct p1 as [[[[[ba22 t22] p22] bl22] e22] h22].
  inversion Hev1. inversion Hev4. subst.
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite -> wfo_aux.
  right; left.  intuition.
  inversion Hev1. 
  inversion Hev4.
 Qed.
 
-Lemma dec_Elim : forall (s: STV) (p c : FT_Judgement),
- elim s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Elim : forall (s: STV) (p c : Machine_States),
+ elim s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s.
@@ -1146,19 +1146,19 @@ Proof.
  inversion K1.
  inversion K3.
  subst.
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite wfo_aux.
  right;left. intuition.
  contradict ec; exists l; reflexivity.
  contradict ep; exists l; auto.
 Qed.
 
-Lemma dec_Hwin  : forall (s: STV) (p c : FT_Judgement),
- hwin s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Hwin  : forall (s: STV) (p c : Machine_States),
+ hwin s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s.
@@ -1175,10 +1175,10 @@ Proof.
  contradict ep; exists l; auto.
 Qed.
 
-Lemma dec_Ewin : forall (s: STV) (p c : FT_Judgement),
- ewin s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Ewin : forall (s: STV) (p c : Machine_States),
+ ewin s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s.
@@ -1196,10 +1196,10 @@ Proof.
  contradict ep; exists l; auto.
 Qed.
  
-Lemma measure_dec : forall (s: STV) (p c: FT_Judgement), (initStep s p c) \/ (count s p c) \/ 
+Lemma measure_dec : forall (s: STV) (p c: Machine_States), (initStep s p c) \/ (count s p c) \/ 
     (elect s p c) \/ (transfer1_elected s p c) \/ (transfer2_elected s p c) \/ (transfer_elim s p c)  
                   \/ (elim s p c) \/ (hwin s p c) \/ (ewin s p c) -> 
-    forall (ep : ~ FT_final p) (ec: ~ FT_final c), FT_wfo (FT_m (mk_nfj c ec)) (FT_m (mk_nfj p ep)).   
+    forall (ep : ~ State_final p) (ec: ~ State_final c), Order_NatProduct (Measure_States (IsNonFinal c ec)) (Measure_States (IsNonFinal p ep)).   
 Proof.
  intros s p c H ep ec.
  destruct H.
@@ -1226,7 +1226,7 @@ Qed.
                                     emp_elec,all_hopeful)) *)
 
 
-Inductive Certificate (st: nat) (bs: list ballot) (s: STV) (j0: FT_Judgement): FT_Judgement -> Type:=
+Inductive Certificate (st: nat) (bs: list ballot) (s: STV) (j0: Machine_States): Machine_States -> Type:=
   start:  forall j, (j = j0) -> Certificate st bs s j0 j
  |appInit: forall j1 j2, Certificate st bs s j0 j1 -> initStep s j1 j2 -> Certificate st bs s j0 j2 
  |appCount: forall j1 j2, Certificate st bs s j0 j1 -> count s j1 j2 -> Certificate st bs s j0 j2   
@@ -1238,7 +1238,7 @@ Inductive Certificate (st: nat) (bs: list ballot) (s: STV) (j0: FT_Judgement): F
  | appHwin: forall j1 j2, Certificate st bs s j0 j1 -> hwin s j1 j2 -> Certificate st bs s j0 j2
  | appEwin: forall j1 j2, Certificate st bs s j0 j1 -> ewin s j1 j2 -> Certificate st bs s j0 j2.
 
-Lemma Rule_Application : forall (s: STV) (j1: FT_Judgement), ~ (FT_final j1) -> 
+Lemma Rule_Application : forall (s: STV) (j1: Machine_States), ~ (State_final j1) -> 
    existsT j2, {initStep s j1 j2} + {count s j1 j2} + {elect s j1 j2} + {transfer1_elected s j1 j2} + 
    {transfer2_elected s j1 j2} + {transfer_elim s j1 j2} + {elim s j1 j2} + {hwin s j1 j2} + {ewin s j1 j2}. 
 Proof.
@@ -1395,10 +1395,10 @@ Qed.
 
 Lemma Extending_Certificate : forall (bs: list ballot), 
   forall (s: STV),
-  forall j0 j1, forall (ej0: ~ FT_final j0) (ej1: ~ FT_final j1), Certificate X.st bs s j0 j1 ->
+  forall j0 j1, forall (ej0: ~ State_final j0) (ej1: ~ State_final j1), Certificate X.st bs s j0 j1 ->
     existsT j2, 
         (Certificate X.st bs s j0 j2) * 
-        (forall ej2: (~ FT_final j2), FT_wfo (FT_m (mk_nfj j2 ej2)) (FT_m (mk_nfj j1 ej1))).                     
+        (forall ej2: (~ State_final j2), Order_NatProduct (Measure_States (IsNonFinal j2 ej2)) (Measure_States (IsNonFinal j1 ej1))).                     
 Proof.
  intros bs s j0 j1 ej0 ej1 H0.
  specialize (Rule_Application s j1 ej1). intro H1.
@@ -1452,25 +1452,25 @@ Qed.
 
 Lemma Termination_Aux : forall (bs: list ballot),
   forall (s: STV), 
-  forall n: FT_WFO, 
-  forall j0 (evj0: ~ FT_final j0),
-  forall j (evj: not (FT_final j)), FT_m (mk_nfj j evj) = n -> 
+  forall n: Product_Five_NatSet, 
+  forall j0 (evj0: ~ State_final j0),
+  forall j (evj: not (State_final j)), Measure_States (IsNonFinal j evj) = n -> 
         Certificate X.st bs s j0 j -> 
-           existsT j', (FT_final j') * (Certificate X.st bs s j0 j').
+           existsT j', (State_final j') * (Certificate X.st bs s j0 j').
 Proof.                                                
  intros bs s n j0 evj0. 
- induction n as [w IH] using (well_founded_induction_type FT_wfo_wf).
+ induction n as [w IH] using (well_founded_induction_type Order_NatProduct_wf).
  intros j evj Eqn Certj.
  assert (Hex: existsT j', 
    (Certificate X.st bs s j0 j') * 
-   (forall evj' : not (FT_final j'), FT_wfo (FT_m (mk_nfj j' evj')) (FT_m (mk_nfj j evj)))).  
+   (forall evj' : not (State_final j'), Order_NatProduct (Measure_States (IsNonFinal j' evj')) (Measure_States (IsNonFinal j evj)))).  
  apply (Extending_Certificate bs s j0 j evj0 evj Certj). 
  destruct Hex as [j' [Hex1 Hex2]].
  destruct (final_dec j') as [f | nf].
  exists j'. split. assumption. auto.
  specialize (Hex2 nf).
  rewrite <- Eqn in IH.
- destruct (IH (FT_m (mk_nfj j' nf)) Hex2 j' nf) as [j'' Hj''].
+ destruct (IH (Measure_States (IsNonFinal j' nf)) Hex2 j' nf) as [j'' Hj''].
  reflexivity.  
  assumption.
  exists j''.
@@ -1478,8 +1478,8 @@ Proof.
 Qed.
 
 Theorem Termination : forall (bs: list ballot),
-forall j0 (evj0: ~FT_final j0), forall (s: STV), 
-                            existsT j, (FT_final j) * (Certificate X.st bs s j0 j).
+forall j0 (evj0: ~State_final j0), forall (s: STV), 
+                            existsT j, (State_final j) * (Certificate X.st bs s j0 j).
 Proof.
  intros bs j0 evj0 s.
  destruct (final_dec j0) as [f | ea].
@@ -1489,7 +1489,7 @@ Proof.
                                     emp_elec,all_hopeful)). *)
  contradict evj0.
  assumption.
- apply (Termination_Aux bs s (FT_m (mk_nfj j0 ea)) j0 ea j0 ea).  
+ apply (Termination_Aux bs s (Measure_States (IsNonFinal j0 ea)) j0 ea j0 ea).  
  reflexivity.
  apply start. auto.
 Qed. 
@@ -2716,7 +2716,7 @@ Lemma list_is_first_hopeful_Eq_List_IsFirst_Hopeful :
 *) 
 
 
-Definition Union_InitStep (prem :FT_Judgement) (conc :FT_Judgement): Prop :=
+Definition Union_InitStep (prem :Machine_States) (conc :Machine_States): Prop :=
  exists ba ba',  
   prem = initial ba /\
   ba' = (Filter ba) /\
@@ -2746,7 +2746,7 @@ Lemma UnionInitStep_SanityCheck_Red: SanityCheck_Initial_Red Union_InitStep.
  intuition.
 Qed.
 
-Definition Union_count (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_count (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists ba t nt p np bl h e,                (** count the ballots requiring attention **)
   prem = state (ba, t, p, bl, e, h) /\     (* if we are in an intermediate state of the count *) 
   [] <> ba /\                                        (* and there are ballots requiring attention *)
@@ -2760,7 +2760,7 @@ Definition Union_count (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
       else ((nt c) = (hd nty t) c) /\ (np c) = (p c)) /\                 
   conc = state ([], nt :: t, np, bl, e, h).     
 
-Hypothesis Bl_hopeful_NoIntersect : forall j: FT_Judgement, forall ba t p bl e h, j = state (ba,t,p,bl,e,h) ->
+Hypothesis Bl_hopeful_NoIntersect : forall j: Machine_States, forall ba t p bl e h, j = state (ba,t,p,bl,e,h) ->
  (forall c, In c (snd bl) -> ~ In c (proj1_sig h)) * (forall c, In c (fst bl) -> ~ In c (snd bl)).
 
 Lemma UnionCount_SanityCheck_App : SanityCheck_Count_App Union_count.
@@ -2832,7 +2832,7 @@ Lemma UnionCount_SanityCheck_Red: SanityCheck_Count_Red Union_count.
  rewrite H. auto.
 Qed.
 
-Definition Union_hwin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_hwin (prem: Machine_States) (conc: Machine_States) : Prop :=
   exists w ba t p bl e h,                            
    prem = state (ba, t, p, bl, e, h) /\           
    length (proj1_sig e) + length (proj1_sig h) <= st /\ 
@@ -2860,7 +2860,7 @@ Proof.
  intuition.
 Qed.
 
-Definition Union_ewin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_ewin (prem: Machine_States) (conc: Machine_States) : Prop :=
   exists w ba t p bl e h,                    (** elected win **)
    prem = state (ba, t, p, bl, e, h) /\   (* if at any time *)
    length (proj1_sig e) = st /\             (* we have as many elected candidates as seats *) 
@@ -2889,7 +2889,7 @@ Proof.
  assumption.
 Qed.
 
-Definition Union_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_transfer (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists nba t p np bl nbl h e,         (** transfer votes **) 
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
@@ -2946,7 +2946,7 @@ Lemma UnionTransfer_SanityCheck_Red : SanityCheck_Transfer_Red Union_transfer.
  omega.
 Qed.
 
-Definition Union_elim (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_elim (prem: Machine_States) (conc: Machine_States) : Prop :=
   exists nba t p np e h nh bl2,                    
    prem = state ([], t, p, ([], bl2), e, h) /\         
    length (proj1_sig e) + length (proj1_sig h) > st /\ 
@@ -3016,7 +3016,7 @@ Lemma UnionElim_SanityCheck_Red : SanityCheck_Elim_Red Union_elim.
  intuition.
 Qed.
 
-Definition Union_elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_elect (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists t p np (bl nbl: (list cand) * (list cand)) (nh h: {hopeful: list cand | NoDup hopeful})(e ne: {l : list cand | length l <= st }),
     prem = state ([], t, p, bl, e, h) /\ 
     exists l,                                      
@@ -3124,7 +3124,7 @@ Qed.
 Definition Union_quota := 
  (((inject_Z (Z.of_nat (length (Filter bs)))) / (1 + inject_Z (Z.of_nat st)) + 1)%Q). 
 
-Definition VicTas_TransferElected2 (prem: FT_Judgement) (conc: FT_Judgement) :=
+Definition VicTas_TransferElected2 (prem: Machine_States) (conc: Machine_States) :=
  exists nba t p np bl nbl h e,         
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
@@ -3207,7 +3207,7 @@ Proof.
  auto.
 Qed.
 
-Definition VicTas_TransferElim (prem: FT_Judgement) (conc: FT_Judgement) :=
+Definition VicTas_TransferElim (prem: Machine_States) (conc: Machine_States) :=
  exists nba t p np bl nbl h e,         
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
@@ -3222,7 +3222,7 @@ Definition VicTas_TransferElim (prem: FT_Judgement) (conc: FT_Judgement) :=
      (forall d, d <> c' -> np(d) = p(d))) /\    
    conc = state (nba, t, np, nbl, e, h). 
 
-Hypothesis Bl_NoDup : forall j: FT_Judgement, forall ba t p bl e h, 
+Hypothesis Bl_NoDup : forall j: Machine_States, forall ba t p bl e h, 
   j = state (ba,t,p,bl,e,h) -> NoDup (snd bl).
 
 
@@ -3345,10 +3345,10 @@ Definition UnionSTV := (mkSTV (quota)
     (Union_ewin) (UnionEwin_SanityCheck_App) (UnionEwin_SanityCheck_Red)).
 
 
-Lemma init_stages_R_initial : ~ FT_final (initial (Filter bs)).
+Lemma init_stages_R_initial : ~ State_final (initial (Filter bs)).
 Proof.
  intro.
- unfold FT_final in H.
+ unfold State_final in H.
  destruct H.
  inversion H.
 Qed.
@@ -3358,7 +3358,7 @@ Definition Union_Termination := Termination (initial (Filter bs)) init_stages_R_
 End ANUnion.
 *)
 (*
-Definition ACT_TransferElected (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition ACT_TransferElected (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists nba t p np bl nbl h e,
   prem = state ([], t, p, bl, e, h) /\
   (length (proj1_sig e) < st) /\
@@ -3409,7 +3409,7 @@ Qed.
 
 (* transfer value has changed so that only last parcel is to be transferred at a Manual_ACT rate*)
 (* note that only the last parcel is kept after being updated. The rest of the parcel is thrown out! *)
-Definition ACT_Elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition ACT_Elect (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists t p np (bl nbl: (list cand) * (list cand)) nh h (e ne: {l : list cand | length l <= st }),
     prem = state ([], t, p, bl, e, h) /\
     exists l,
@@ -3527,10 +3527,10 @@ Definition ActSTV := (mkSTV (quota)
     (Union_hwin) (UnionHwin_SanityCheck_App) (UnionHwin_SanityCheck_Red)
     (Union_ewin) (UnionEwin_SanityCheck_App) (UnionEwin_SanityCheck_Red)).
 
-Lemma init_stages_R_initial : ~ FT_final (initial (Filter bs)).
+Lemma init_stages_R_initial : ~ State_final (initial (Filter bs)).
 Proof.
  intro.
- unfold FT_final in H.
+ unfold State_final in H.
  destruct H.
  inversion H.
 Qed.
@@ -3566,7 +3566,7 @@ Proof.
 Qed.
 
 
-Definition ACT_LH_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition ACT_LH_transfer (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists nba t p np bl nbl h e,         (** transfer votes **) 
   prem = state ([], t, p, bl, e, h) /\ 
   (length (proj1_sig e) < st) /\
@@ -3626,7 +3626,7 @@ Definition ACTLH_Termination := Termination (initial (Filter bs)) init_stages_R_
 
 
 (* transferring only the last parcel of the head of the backlog *)
-Definition LastParcel_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition LastParcel_transfer (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists nba t p np bl nbl h e,         (** transfer votes **) 
   prem = state ([], t, p, bl, e, h) /\ 
   (length (proj1_sig e) < st) /\
@@ -3697,7 +3697,7 @@ Definition Update_transVal (c: cand) (p: cand -> list (list ballot)) (t: cand ->
 
 (* transfer value has changed so that only last parcel is to be transferred at a Manual_ACT rate*)
 (* note that only the last parcel is kept after being updated. The rest of the parcel is thrown out! *)
-Definition ManualACT_elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition ManualACT_elect (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists t p np (bl nbl: list cand) nh h (e ne: {l : list cand | length l <= st }),
     prem = state ([], t, p, bl, e, h) /\ 
     exists l,                                      
