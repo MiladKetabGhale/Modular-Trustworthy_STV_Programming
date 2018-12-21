@@ -582,8 +582,8 @@ Inductive FT_Judgement :=
  |state:                                                (** intermediate states **)
     list ballot                                          (* uncounted votes *)
     * list (X.cand -> Q)                                 (* tally *)
-    * (X.cand -> list (list ballot))                     (* pile of ballots for each candidate*)
-    * ((list X.cand) * (list X.cand))                    (* backlog of candidates requiring transfer *)
+    * (X.cand -> list (list ballot))                     (* pile of ballots *)
+    * ((list X.cand) * (list X.cand))                    (* backlog *)
     * {elected: list X.cand | length  elected <= X.st}   (* elected candidates *)
     * {hopeful: list X.cand | NoDup hopeful}             (* continuing candidates *)
       -> FT_Judgement
