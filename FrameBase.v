@@ -354,8 +354,7 @@ Fixpoint Filter (l: list ballot):=
  match l with
          [] => []
          |l0::ls => let x := proj1_sig (fst l0) in
-                      if nodup_elem x
-                       && (non_empty x)
+                      if X.ValidBallot x
                          then l0:: Filter ls
                       else Filter ls  
  end.
@@ -621,56 +620,56 @@ Definition FT_Rule := Machine_States -> Machine_States -> Prop.
 (* The set (nat)^5 to be used as the set on which we impose a lexicographic order *)
 Definition Product_Five_NatSet := nat * (nat * (nat * (nat * nat))). 
 
-Definition dep2 := sigT (A:= nat) (fun a => nat).
-Definition dep3 := sigT (A:= nat) (fun a => dep2).
-Definition dep4 := sigT (A:= nat) (fun a => dep3).
-Definition dep5 := sigT (A:= nat) (fun a => dep4).
-Definition mk2  : nat * nat -> dep2.
+Definition DependentNat_Prod2 := sigT (A:= nat) (fun a => nat).
+Definition DependentNat_Prod3 := sigT (A:= nat) (fun a => DependentNat_Prod2).
+Definition DependentNat_Prod4 := sigT (A:= nat) (fun a => DependentNat_Prod3).
+Definition DependentNat_Prod5 := sigT (A:= nat) (fun a => DependentNat_Prod4).
+Definition Make_DependentNat2  : nat * nat -> DependentNat_Prod2.
  intros (p,q).
  exists p.
  exact q.
  Defined.
 
-Definition mk3 : nat * (nat * nat) -> dep3.
+Definition Make_DependentNat3 : nat * (nat * nat) -> DependentNat_Prod3.
  intros (n, p_q).
  exists n.
- exact (mk2 p_q).
+ exact (Make_DependentNat2 p_q).
 Defined. 
 
-Definition mk4 : nat * (nat * (nat * nat)) -> dep4.
+Definition Make_DependentNat4 : nat * (nat * (nat * nat)) -> DependentNat_Prod4.
  intros (m, n_p_q).
  exists m.
- exact (mk3 n_p_q).
+ exact (Make_DependentNat3 n_p_q).
 Defined.
 
-Definition mk5 : nat * (nat * (nat * (nat * nat))) -> dep5.
+Definition Make_DependentNat5 : nat * (nat * (nat * (nat * nat))) -> DependentNat_Prod5.
  intros (m,n_p_q_r).
  exists m.
- exact (mk4 n_p_q_r).
+ exact (Make_DependentNat4 n_p_q_r).
 Defined.
 
-Definition lt_pq :dep2 -> dep2 -> Prop :=
+Definition LexOrdNat_Aux1 :DependentNat_Prod2 -> DependentNat_Prod2 -> Prop :=
   (lexprod nat (fun a => nat) Peano.lt (fun a:nat =>Peano.lt)).
 
-Definition lt_npq : dep3 -> dep3 -> Prop :=
-  (lexprod nat (fun a => dep2) Peano.lt (fun a:nat =>lt_pq)).
-Definition lt_mnpq : dep4 -> dep4 -> Prop:=
-  (lexprod nat (fun a => dep3) Peano.lt (fun (a:nat) => lt_npq)).
+Definition LexOrdNat_Aux2 : DependentNat_Prod3 -> DependentNat_Prod3 -> Prop :=
+  (lexprod nat (fun a => DependentNat_Prod2) Peano.lt (fun a:nat =>LexOrdNat_Aux1)).
+Definition LexOrdNat_Aux3 : DependentNat_Prod4 -> DependentNat_Prod4 -> Prop:=
+  (lexprod nat (fun a => DependentNat_Prod3) Peano.lt (fun (a:nat) => LexOrdNat_Aux2)).
 
-Definition lt_mnpqr: dep5 -> dep5 -> Prop :=
-  (lexprod nat (fun a => dep4) Peano.lt (fun (a:nat) => lt_mnpq)).
+Definition LexOrdNat: DependentNat_Prod5 -> DependentNat_Prod5 -> Prop :=
+  (lexprod nat (fun a => DependentNat_Prod4) Peano.lt (fun (a:nat) => LexOrdNat_Aux3)).
 
-Lemma wf_Lexprod1 : well_founded lt_npq.
- unfold lt_npq. apply wf_lexprod.
+Lemma wf_Lexprod1 : well_founded LexOrdNat_Aux2.
+ unfold LexOrdNat_Aux2. apply wf_lexprod.
  apply lt_wf.
  intro n.
- unfold lt_pq;apply wf_lexprod.
+ unfold LexOrdNat_Aux1;apply wf_lexprod.
  apply lt_wf.
  intro m; apply lt_wf.
 Qed.
 
-(*lt_mnpq is a well founded ordering*)
-Lemma wf_Lexprod : well_founded lt_mnpq.
+(*LexOrdNat_Aux3 is a well founded ordering*)
+Lemma wf_Lexprod : well_founded LexOrdNat_Aux3.
 Proof.
  red in |-*;apply wf_lexprod. apply lt_wf. intro n.
  red in |-*;apply wf_lexprod. apply lt_wf. intro m.
@@ -678,7 +677,7 @@ Proof.
  apply lt_wf.
 Qed.
 
-Lemma wf_Lexprod2 : well_founded lt_mnpqr.
+Lemma wf_LexOrdNat : well_founded LexOrdNat.
 Proof.
 red in |-*; apply wf_lexprod. apply lt_wf. intro n.
 red in |-*; apply wf_lexprod. apply lt_wf. intro m.
@@ -689,12 +688,12 @@ Qed.
 
 (* imposing a well-found ordering on (nat)^5 *)
 Definition Order_NatProduct : Product_Five_NatSet -> Product_Five_NatSet -> Prop := (fun x y : nat * (nat * (nat * (nat * nat))) => 
- lt_mnpqr (mk5 x) (mk5 y)).
+ LexOrdNat (Make_DependentNat5 x) (Make_DependentNat5 y)).
 
 Lemma Order_NatProduct_wf : well_founded Order_NatProduct.
  unfold Order_NatProduct. 
  apply wf_inverse_image.
- apply wf_Lexprod2.
+ apply wf_LexOrdNat.
 Qed.
 
 
@@ -716,31 +715,31 @@ Defined.
 
 (* lexicographic order behaves as expected *)
 Lemma wfo_aux:  forall a b c d a' b' c' d' e e': nat,
- (lt_mnpqr (mk5 (a, (b, (c, (d,e))))) (mk5 (a', (b', (c',(d',e')))))) <->
+ (LexOrdNat (Make_DependentNat5 (a, (b, (c, (d,e))))) (Make_DependentNat5 (a', (b', (c',(d',e')))))) <->
    (a < a' \/
    (a = a' /\ b < b' \/
    (a = a' /\ b = b' /\ c < c' \/
    (a = a' /\ b = b' /\ c = c' /\ d < d' \/
    (a = a' /\ b = b' /\ c = c' /\ d = d' /\ e < e'))))).
 Proof.
- intros. split. unfold lt_mnpqr. unfold mk5. simpl. intro H. inversion H. subst. 
+ intros. split. unfold LexOrdNat. unfold Make_DependentNat5. simpl. intro H. inversion H. subst. 
   (* case 1st component are below one another *)
  auto.
   (* case 1st components are equal *)
- unfold lt_mnpq in H1. inversion H1. subst. auto.
+ unfold LexOrdNat_Aux3 in H1. inversion H1. subst. auto.
   (* case 1st and 2nd components are equal and 3rd are below one another *)
-  unfold lt_npq in H6.
+  unfold LexOrdNat_Aux2 in H6.
   inversion H6.
   right;right;left;auto.
   (* case where the first three components are equal but the last decreases*)
-  unfold lt_pq in H11. inversion H11. subst.
+  unfold LexOrdNat_Aux1 in H11. inversion H11. subst.
   right;right;right;auto.        
   (* the case where the first four are equal and the last decreases *)
   right;right;right;right. subst. auto.
   (* right-to-left direction *)
  intro H. destruct H.
   (* case 1st components are below one another *)
- unfold lt_mnpqr. apply left_lex. assumption.
+ unfold LexOrdNat. apply left_lex. assumption.
  destruct H.
   (* case 1st components are equal and 2nd components are below one another *)
  destruct H as [H1 H2]. subst. apply right_lex. apply left_lex. assumption.
@@ -802,7 +801,7 @@ omega.
 inversion Hs34.
 inversion Hs1.
 Qed.
-*) 
+*)  
 Definition SanityCheck_Initial_App (R : Machine_States -> Machine_States -> Prop) :=  
   forall premise, forall ba, (premise = initial ba) -> existsT conclusion,
      (conclusion = state (Filter ba, [nty], nas, (nbdy,nbdy), emp_elec, all_hopeful)) *  
@@ -2645,16 +2644,18 @@ Proof.
  apply (Permutation_app_comm).
 Qed.  
 
+Check proj1_sig. 
 Lemma Filter_segmentation: forall l a, Filter (a::l) = Filter l \/ (Filter (a::l) = a::Filter l).
 Proof.
  intros l a.
  simpl.
- destruct (nodup_elem (proj1_sig (fst a)) && (non_empty (proj1_sig (fst a)))).
+ destruct (X.ValidBallot (` (fst a))).
  right.
  reflexivity.
  left.
  auto.
 Qed.
+
 
 Lemma Permutation_reorder2: forall (A:Type) l k1 k2 (a:A), Permutation l ((a::k1)++k2) -> Permutation l (k1++a::k2).
 Proof.
