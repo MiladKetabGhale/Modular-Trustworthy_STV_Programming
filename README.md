@@ -1,4 +1,4 @@
-Please note that the contributors are improving this framework further. If you wished the test the software, git clone any commit made before Dec 15th 2018.:wq
+Please note that the contributors are improving this framework further. If you wished to test the software, git clone any commit made before Dec 15th 2018.
 
 This repository hosts a modular framework for STV Calculi.
 
