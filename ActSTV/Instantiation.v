@@ -31,11 +31,11 @@ Module Instantiate.
 Definition cand := Cand.
 Definition cand_all := [Alice;Bob;Charlie].
 Definition st := (1)%nat.
-Definition qu := (8 # 3)%Q.
-Definition ValidBallot l :=    
+Definition quota := (8 # 3)%Q.
+Definition ValidBallot (l: list cand) :=    
     match l with
       [] => false
-     |_ => if (5 <= length l) && nodup_elem l then true else false
+     |_ => true
     end.
 
 Lemma cand_nodup : NoDup cand_all.
