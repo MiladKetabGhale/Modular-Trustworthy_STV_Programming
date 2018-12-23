@@ -32,127 +32,258 @@ Require Import Coq.Bool.Sumbool.
 Require Import Coq.Sorting.Mergesort.
 Import ListNotations.
 Require Import Coq.Program.Basics.
-
-
-Fixpoint merge l1 l2 :=
-  let fix merge_aux l2 :=
-  match l1, l2 with
-  | [], _ => l2
-  | _, [] => l1
-  | a1::l1', a2::l2' =>
-      match (Qlt_le_dec a1  a2) with
-                left _ =>  a1 :: merge l1' l2 
-              | right _ => a2 :: merge_aux l2'
-     end 
-    end
-  in merge_aux l2.
- 
-Fixpoint merge_list_to_stack stack l :=
-  match stack with
-  | [] => [Some l]
-  | None :: stack' => Some l :: stack'
-  | Some l' :: stack' => None :: merge_list_to_stack stack' (merge l' l)
-  end.
-
-Fixpoint merge_stack stack :=
-  match stack with
-  | [] => []
-  | None :: stack' => merge_stack stack'
-  | Some l :: stack' => merge l (merge_stack stack')
-  end.
-
-Fixpoint iter_merge stack l :=
-  match l with
-  | [] => merge_stack stack
-  | a::l' => iter_merge (merge_list_to_stack stack [a]) l'
-  end.
-
-Definition sort := iter_merge [].
-
-Definition Rat_eq r1 r2 := match (Qlt_le_dec r1 r2) with
-                             left _ => false
-                            | right _ => match (Qlt_le_dec r2 r1) with
-                                           left _ => false
-                                         | right _ => true
-                                         end
-                            end. 
-
-
-(*
-Fixpoint retpair l acc1 acc2 {struct l} := 
- match l with 
-   |[] => acc2
-   |[h] => [h] :: acc2
-   |h1::h2::[] => if Rat_eq h1 h2 then [h1; h2] :: acc2 else [h1] :: [h2] :: acc2
-   |h1 :: h2 :: ret => if Rat_eq h1 h2 then retpair (h2 :: ret) (h1 :: acc1) acc2 
-                       else retpair (h2 :: ret) [] ((h1 :: acc1) :: acc2)
- end.
+Require Import Coq.Arith.Wf_nat.
+Require Import Program.
+Require Import  Recdef.
+Require Export Parameters.
+(*Import Params.
 *)
+(*Import Instantiation.*)
 
-
-
-Fixpoint Remove_rat (r: Q) l acc :=
-  match l with 
-   [] => acc
- |l0 :: ls => if Rat_eq r l0 then Remove_rat r ls acc else Remove_rat r ls (l0:: acc)
- end.
-
-Fixpoint find_all_eq (r: Q) l acc :=
- match l with
-    [] => acc
-  |l0::ls => if Rat_eq r l0 then find_all_eq r ls (l0 :: acc) else acc
- end.
-
-   
-Fixpoint parcel (n: nat) l :=
-  match n with
-   O => []
-  |S n' => match l with 
-             [] => []
-           |l0 :: ls => (find_all_eq l0 (l0::ls) []) :: (parcel n' (Remove_rat l0 ls []))
-           end
-   end.
-
-Fixpoint Remove_elem (a: Q) l acc :=
-  match l with 
-    [] => acc
-  |l0 ::ls => if Rat_eq a l0 then Remove_elem a ls acc else Remove_elem a ls (l0::acc)
- end.
-
-Fixpoint Remove_duplicates n (l: list Q) acc :=
- match n with 
-   O => acc
-  |S n' => match l with
-             [] => acc
-           |l0::ls => Remove_duplicates n' (Remove_elem l0 ls []) (l0 ::acc)
-           end
-end.
-
-Eval compute in (parcel (length [1;1;1;0;0;1]) (rev (sort [1;1;0;1;0;1]))).
-
+Module B (X: Params).
 (* notation for type level existential quantifier *)
 Notation "'existsT' x .. y , p" := (sigT (fun x => .. (sigT (fun y => p)) ..))
   (at level 200, x binder, right associativity,
    format "'[' 'existsT' '/ ' x .. y , '/ ' p ']'")
   : type_scope.
 
+Close Scope Q_scope.
+
+(*Variable cand: Type.*)
+
+Module RatOrder  <: TotalLeBool.
+
+  Definition t := ({v : list X.cand | (NoDup v) /\ ( [] <> v)} * Q)%type. (* (A * Q)%type. *)
+  
+  Definition leb (r1 : t) (r2 : t) := 
+    match Q_dec (snd r1) (snd r2) with
+    | inleft l => match l with
+                  | left _ =>   true 
+                  | right _ => false
+                  end
+    | inright r => true
+    end.  
+ 
+  Theorem leb_total : forall r1 r2, is_true (leb r1 r2) \/ is_true (leb r2 r1).
+  Proof.   
+    intros r1 r2. unfold is_true, leb.
+    destruct (Q_dec (snd r1) (snd r2)). destruct s. auto.
+    right.  destruct (Q_dec (snd r2) (snd r1)). destruct s. auto.
+    pose proof (Qlt_trans (snd r1) (snd r2) (snd r1) q0 q).
+    pose proof (Qlt_irrefl (snd r1)). unfold not in H0.
+    pose proof (H0 H). inversion H1. auto. auto.
+  Qed.
+  
+End RatOrder.
+
+Module Import QSort := Sort RatOrder.
+
+
+
+Definition Rat_eq r1 r2 := Qeq_bool r1 r2.
+
+
+
+Fixpoint countem {A: Type} y (xs: list (A * Q)) : nat :=
+   match xs with
+   | [] => (0)%nat
+   | x :: more => if Qeq_bool (snd x) y then S (countem y more) else (0)%nat
+   end.
+
+Lemma countem_len :
+  forall (A : Type) (q : Q) (l : list (A * Q)), ((countem q l) <= length l)%nat.
+Proof.
+  intros. induction l.
+  simpl. omega.
+  simpl. destruct (Qeq_bool (snd a) q). omega. omega.
+Qed.
+  
+Fixpoint take {A: Type} (y : nat) (xs: list (A * Q)) :=
+   match y, xs with
+   | O, _ => []
+   | S y', [] => []
+   | S y', x :: more => x :: take y' more
+   end.
+
+Fixpoint skip {A: Type} y (xs: list (A * Q)) :=
+   match y, xs with
+   | O, _ => xs
+   | S y', [] => []
+   | S y', x :: more => skip y' more
+   end.
+
+Lemma skip_bounded:
+   forall (A: Type) (y: nat) xs, (length (@skip A y xs) <= length xs)%nat.
+Proof.
+   intros A y xs. revert y.
+   induction xs; intros; simpl.
+   - destruct y; simpl; omega.
+   - destruct y; simpl; try omega.
+     rewrite IHxs. omega.
+Qed.
+
+Lemma take_skip:
+   forall (A: Type) k (xs : list (A * Q)) , (take k xs ++ skip k xs = xs)%nat.
+Proof.
+   intros A k xs. revert k.
+   induction xs; intros; simpl.
+   - destruct k; simpl; auto.
+   - destruct k; simpl; auto.
+     rewrite IHxs. auto.
+Qed.
+
+Function groupbysimple {A: Type} (xs: list (A * Q)) { measure length xs } :=
+   match xs with
+   | [] => []
+   | x :: more =>
+        let k := countem (snd x) more in
+        (x :: take k more) :: @groupbysimple A (skip k more)
+   end.
+Proof.
+   intros.
+   simpl.
+   assert (length (skip (countem (snd x) more) more) <= length more)%nat by
+       apply skip_bounded. intuition.
+Defined.
+
+
+Fixpoint concat {A: Type} (l : list (list A)) : list A :=
+  match l with
+  | nil => nil
+  | cons x l => x ++ concat l
+  end.
+
+Lemma groupby_identity:
+   forall (A : Type) xs, concat (groupbysimple A xs) = xs.
+Proof.
+  intros. 
+  functional induction (groupbysimple A xs).
+  - simpl. auto.
+  - simpl. rewrite IHl. rewrite take_skip. auto.
+Qed.
+
+
+Lemma concat_rat:
+  forall (l : list ({v : list X.cand | (NoDup v) /\ ( [] <> v)} * Q)) ,
+    length l = length (concat (groupbysimple _ (sort l))).
+Proof.
+  intros l.
+  pose proof (groupby_identity _ (sort l)).
+  rewrite H.
+  pose proof (Permuted_sort l).
+  pose proof (Permutation_length).
+  pose proof (H1 _ l (sort l) H0).
+  auto.
+Qed.
+
+(*Eval compute in groupbysimple _ [(1%nat,(3 # 1)%Q); (1%nat,(3 # 1)%Q); (1%nat,(2 # 1)%Q); (0%nat,(2 # 3)%Q); (1%nat,(2 # 1)%Q)].
+Eval compute in groupbysimple _ [(1%nat, (3 # 1)%Q)].
+*)
+ 
+Lemma groupby_notempty :
+  forall  (A : Type) (l : list (A * Q)),
+    l <> [] -> last (groupbysimple _ l) [] <> [].
+Proof.
+  intros A l H.
+  functional induction (groupbysimple A l).
+  + firstorder. 
+  + simpl in *.
+    remember (skip (countem (snd x) more) more) as skl.
+    assert ({skl = []} + {skl <> []}). 
+    pose proof (destruct_list skl). destruct X. destruct s.
+    destruct s. right. rewrite e. intuition. inversion H0.
+    left. auto.
+    destruct H0. rewrite e. firstorder.
+    pose proof (IHl0 n).
+    pose proof (destruct_list skl). destruct X. destruct s.
+    destruct s. rewrite e.
+    rewrite (groupbysimple_equation A (x0 :: x1)).
+    rewrite e in H0. rewrite (groupbysimple_equation _ (x0 :: x1)) in H0.
+    auto. rewrite e in n. firstorder.
+Qed.
+
+Lemma sortedList_notempty :
+  forall (l : list ({v : list X.cand | NoDup v /\ [] <> v} * Q)),
+    l <> [] -> sort l <> [].
+Proof.
+  intros l H.
+  remember (sort l) as t.
+  induction t.
+  pose proof (destruct_list l). destruct X. destruct s.
+  destruct s. rewrite e in Heqt.
+  pose proof (Permuted_sort l). rewrite e in H0.
+  rewrite <- Heqt in H0.
+  pose proof (Permutation_sym H0).
+  pose proof (Permutation_nil H1). rewrite H2 in e.
+  rewrite e in H. unfold not in H. pose proof (H eq_refl).
+  inversion H3. firstorder.
+  firstorder.
+Qed.
+  
+  
+Lemma sherin:
+  forall (l : list ({v : list X.cand | NoDup v /\ [] <> v} * Q)),
+    l <> [] ->
+    last (groupbysimple _ (sort l)) [] <> [].
+Proof.
+  intros l H. pose proof (groupby_notempty _ (sort l) (sortedList_notempty l H)).
+  auto.
+Qed.
+
+Lemma groupbysimple_not_empty: forall (l : list (list ({v : list X.cand | NoDup v /\ [] <> v} * Q))), 
+       last l []  <> [] -> l <> [].
+Proof.
+ intros.
+ intro.
+ rewrite H0 in H.
+ simpl in H.
+ contradict H.
+ auto.
+Qed.
+
+
 (* Section genericTermination.
 Close Scope Q_scope. *) 
  
-Section STV_Framework.
-Close Scope Q_scope. 
+(*Module Base.*)
+(*Close Scope Q_scope.*) 
 
-Variable cand: Type.
+(*
+(*Variable cand: Type.*)
 Variable cand_all: list cand.
 Hypothesis cand_nodup: NoDup cand_all.
 Hypothesis cand_finite: forall c, In c cand_all.
 Hypothesis cand_eq_dec: forall c d:cand, {c=d} + {c<>d}.
 Hypothesis cand_in_dec: forall c : cand, forall l : list cand, {In c l} + {~In c l}.
-
+*)
 (* a ballot is a permutation of the list of candidates and a transfer balue *)
-Definition ballot :=  ({v : list cand | (NoDup v) /\ ( [] <> v)} * Q).
+
+ Definition ballot :=  ({v : list X.cand | (NoDup v) /\ ( [] <> v)} * Q).
+
+(*
+Variable bs : list ballot.
+Variable st : nat. 
+Variable quota : Q.
+*)
+
+Definition length_empty: length ([]:list X.cand) <= X.st.
+Proof.
+ simpl.
+ induction X.st.
+ auto.
+ auto.
+Defined.
+
+Definition nbdy : list X.cand := [].                    (* empty candidate list *)
+Definition nty  : X.cand -> Q := fun x => (0)%Q .          (* null tally *)
+Definition nas  : X.cand -> list (list ballot) := fun x => []. (* null vote assignment *)
+Definition emp_elec : {l: list X.cand | length l <= X.st} := 
+ exist _ ([] :list X.cand) length_empty.                (*empty list of elected candidates*)
+Definition all_hopeful  := 
+ exist (fun v => NoDup v) X.cand_all X.cand_nodup.           (*inintial list of all candidates*)
 
 
+(*
 Fixpoint have_same_val (r: Q) (l: (list ballot)) acc :=
  match l with 
   [] => acc
@@ -179,32 +310,9 @@ Fixpoint Parcel_same_val (n:nat) l :=
    end.
   
 
+*)
 
-Variable bs : list ballot.
-Variable st : nat. 
-Variable quota : Q.
-Definition length_empty: length ([]:list cand) <= st.
-Proof.
- simpl.
- induction st.
- auto.
- auto.
-Defined.
-
-Definition nbdy : list cand := [].                    (* empty candidate list *)
-Definition nty  : cand -> Q := fun x => (0)%Q .          (* null tally *)
-Definition nas  : cand -> list (list ballot) := fun x => []. (* null vote assignment *)
-Definition emp_elec : {l: list cand | length l <= st} := 
- exist _ ([] :list cand) length_empty.                (*empty list of elected candidates*)
-
-
-
-Definition all_hopeful : {hopeful: list cand | NoDup hopeful} := 
- exist _ cand_all cand_nodup.           (*inintial list of all candidates*)
-
-
-
-(* summation of weights in a list of ballots *)
+(* sum of weights in a list of ballots *)
 Fixpoint sum_aux (l : list ballot) (acc:Q): Q :=
  match l with 
             | [] => acc
@@ -221,14 +329,14 @@ Fixpoint SUM_AUX (l: list (list ballot)) (acc:Q): Q :=
 
 Definition SUM (l: list (list ballot)) := SUM_AUX l 0.
 
-Fixpoint is_elem (l:list cand) (c :cand) :=
+Fixpoint is_elem (l:list X.cand) (c : X.cand) :=
  match l with
            [] => false
-           |l0::ls => if cand_eq_dec l0 c then true else is_elem ls c
+           |l0::ls => if X.cand_eq_dec l0 c then true else is_elem ls c
  end.
 
 (*checks if list l has duplicate elements*)
-Fixpoint nodup_elem (l:list cand) :=
+Fixpoint nodup_elem (l:list X.cand) :=
  match l with
           [] => true
           |l0::ls => if is_elem ls l0 
@@ -236,7 +344,7 @@ Fixpoint nodup_elem (l:list cand) :=
                      else nodup_elem ls      
  end. 
 
-Fixpoint non_empty (l:list cand):=
+Fixpoint non_empty (l:list X.cand):=
  match l with 
          [] => false
          |_ => true
@@ -248,235 +356,10 @@ Fixpoint Filter (l: list ballot):=
  match l with
          [] => []
          |l0::ls => let x := proj1_sig (fst l0) in
-                      if nodup_elem x
-                       && (non_empty x)
+                      if X.ValidBallot x
                          then l0:: Filter ls
                       else Filter ls  
  end.
-
-(* we can find a candidate with least no of first prefs *)
-Lemma list_min : forall A:Type, forall l: list A, forall f: A -> Q,
- (l = []) + (existsT m:A, (In m l /\ (forall b:A, In b l ->(f m <= f b)%Q))).
-Proof.
- intros.
- induction l as [ | l ls ].
- left. trivial.
- destruct IHls.
- right.
- exists l. split.
- apply (in_eq l ls). intros b ass.
- assert (l = b \/ In b ls).
- apply (in_inv ass). destruct H. replace l with b. intuition. replace ls with ([] : list A) in H.
- contradict H.
- right. destruct s. destruct a. 
- assert ( {(f x < (f l))%Q}  + {((f l) <= (f x))%Q}).
- apply (Qlt_le_dec (f x) (f l))%Q.
- assert ( {(f x <= (f l))%Q}  + {((f l) <= (f x))%Q}).
- intuition.
- destruct H2.
-  (* x is the minimum *)
- exists x. split.
- apply (in_cons l x ls). assumption. intros b ass.
- assert (l = b \/ In b ls).
- apply (in_inv ass).
- destruct H2. replace b with l. assumption.
- apply (H0 b H2).
-  (* l is the minimum *)
- exists l. split.
- apply (in_eq l ls).
- intros b ass.
- assert (l = b \/ In b ls). apply (in_inv ass). destruct H2. 
- replace l with b. intuition.
- specialize (H0 b H2).
- apply (Qle_trans (f l) (f x) (f b)). assumption. assumption.
-Defined. 
-
-(*if a list is not empty, then there exist an element which has the greatest value w.r.t. function f*)
-Lemma list_max : forall A:Type, forall l: list A, forall f: A -> Q,
-   (l = []) + (existsT m:A, (In m l /\ (forall b:A, In b l ->(f b <= f m)%Q))).
-Proof.
- intros.
- induction l.
- left;auto.
- destruct IHl.
- right.
- subst.
- exists a.
- split.
- simpl;left;auto.
- intros.
- destruct H.
- subst.
- apply (Qle_refl (f b)).
- inversion H.
- right.
- destruct s.
- destruct a0.
- assert ({ (f a < f x)%Q} + {(f x <= f a)%Q}).
- apply (Qlt_le_dec (f a) (f x)).
- destruct H1.
- exists x.
- split.
- right;auto.
- intros.
- assert (a= b \/ In b l) by apply (in_inv H1).
- destruct H2.
- subst.
- destruct H1.
- apply (Qlt_le_weak (f b)(f x)).
- assumption.
- apply H0.
- auto.
- apply H0.
- auto.
- exists a.
- split.
- left;auto.
- intros.
- assert (a=b \/ In b l) by apply (in_inv H1).
- destruct H2.
- rewrite H2.
- apply (Qle_refl (f b)).
- apply (Qle_trans (f b)(f x)(f a)).
- apply H0.
- auto.
- assumption.
-Qed.
-
-Lemma list_max_cor: forall A:Type, forall l: list A, forall f: A -> Q,[]<> l -> existsT m:A, (In m l /\ (forall a:A, In a l -> (f a <= f m)%Q)). 
-Proof.
- intros.
- specialize (list_max A l f).
- intros.
- destruct X.
- rewrite e in H.
- contradiction H.
- auto.
- assumption.
-Qed.
-
-(* initial, intermediate and final states in vote counting *)
-Inductive FT_Judgement :=
- initial:
-     list ballot -> FT_Judgement 
- |state:                                   (** intermediate states **)
-    list ballot                            (* uncounted votes *)
-    * list (cand -> Q)                          (* tally *)
-    * (cand -> list (list ballot))                (* pile of ballots for each candidate*)
-    * ((list cand) * (list cand))                             (* backlog of candidates requiring transfer *)
-    * {elected: list cand | length  elected <= st}            (* elected candidates no longer in the running *)
-    * {hopeful: list cand | NoDup hopeful}                    (* hopeful candidates still in the running *)
-      -> FT_Judgement
- | winners:                                                   (** final state **)
-      list cand -> FT_Judgement.                              (* election winners *)
-
- 
-Definition FT_final (a : FT_Judgement) : Prop :=
- exists w, a = winners (w).
-
-Definition FT_initial (a : FT_Judgement) : Prop :=
- exists (ba : list ballot), a = initial (ba).
-
-Lemma final_dec: forall j : FT_Judgement, (FT_final j) + (not (FT_final j)).
-Proof. 
- intro j. 
-  destruct j;
-   repeat (right;unfold FT_final;unfold not;intro H;destruct H;discriminate) 
-     || 
-       left;unfold FT_final;exists l;reflexivity.
-Defined.
-
-Lemma initial_dec: forall j: FT_Judgement, (FT_initial j) + not (FT_initial j).
-Proof.
- intro j.
-  destruct j;
-    repeat (left;unfold FT_initial;exists l;reflexivity)
-        ||
-          (right;intro H;inversion H; discriminate).
-Qed.        
- 
-
-(* Rules *)
-Definition FT_Rule := FT_Judgement -> FT_Judgement -> Prop.
-
-(* well founded order *)
-Definition FT_WFO := nat * (nat * (nat * (nat * nat))). 
-
-Definition dep2 := sigT (A:= nat) (fun a => nat).
-Definition dep3 := sigT (A:= nat) (fun a => dep2).
-Definition dep4 := sigT (A:= nat) (fun a => dep3).
-Definition dep5 := sigT (A:= nat) (fun a => dep4).
-Definition mk2  : nat * nat -> dep2.
- intros (p,q).
- exists p.
- exact q.
- Defined.
-
-Definition mk3 : nat * (nat * nat) -> dep3.
- intros (n, p_q).
- exists n.
- exact (mk2 p_q).
-Defined. 
-
-Definition mk4 : nat * (nat * (nat * nat)) -> dep4.
- intros (m, n_p_q).
- exists m.
- exact (mk3 n_p_q).
-Defined.
-
-Definition mk5 : nat * (nat * (nat * (nat * nat))) -> dep5.
- intros (m,n_p_q_r).
- exists m.
- exact (mk4 n_p_q_r).
-Defined.
-
-Definition lt_pq :dep2 -> dep2 -> Prop :=
-  (lexprod nat (fun a => nat) Peano.lt (fun a:nat =>Peano.lt)).
-
-Definition lt_npq : dep3 -> dep3 -> Prop :=
-  (lexprod nat (fun a => dep2) Peano.lt (fun a:nat =>lt_pq)).
-Definition lt_mnpq : dep4 -> dep4 -> Prop:=
-  (lexprod nat (fun a => dep3) Peano.lt (fun (a:nat) => lt_npq)).
-
-Definition lt_mnpqr: dep5 -> dep5 -> Prop :=
-  (lexprod nat (fun a => dep4) Peano.lt (fun (a:nat) => lt_mnpq)).
-
-Lemma wf_Lexprod1 : well_founded lt_npq.
- unfold lt_npq. apply wf_lexprod.
- apply lt_wf.
- intro n.
- unfold lt_pq;apply wf_lexprod.
- apply lt_wf.
- intro m; apply lt_wf.
-Qed.
-
-(*lt_mnpq is a well founded ordering*)
-Lemma wf_Lexprod : well_founded lt_mnpq.
-Proof.
- red in |-*;apply wf_lexprod. apply lt_wf. intro n.
- red in |-*;apply wf_lexprod. apply lt_wf. intro m.
- red in |-*;apply wf_lexprod. apply lt_wf. intro p.
- apply lt_wf.
-Qed.
-
-Lemma wf_Lexprod2 : well_founded lt_mnpqr.
-Proof.
-red in |-*; apply wf_lexprod. apply lt_wf. intro n.
-red in |-*; apply wf_lexprod. apply lt_wf. intro m.
-red in |-*; apply wf_lexprod. apply lt_wf. intro p.
-red in |-*; apply wf_lexprod. apply lt_wf. intro r.
-apply lt_wf.
-Qed.
-
-(*imposing an ordering on judgements*)
-Definition FT_wfo : FT_WFO -> FT_WFO -> Prop := (fun x y : nat * (nat * (nat * (nat * nat))) => 
- lt_mnpqr (mk5 x) (mk5 y)).
-
-Lemma FT_wfo_wf : well_founded FT_wfo.
- unfold FT_wfo. 
- apply wf_inverse_image.
- apply wf_Lexprod2.
-Qed.
 
 
 Fixpoint Sum_nat (l: list nat) :=
@@ -484,71 +367,6 @@ Fixpoint Sum_nat (l: list nat) :=
    [] => (0)%nat
   |l0::ls => (l0 + Sum_nat ls)%nat
 end.
-
-(* measure function maps to ({0,1},length h, length bl, length ba) *)
-Definition FT_m: { j: FT_Judgement | not (FT_final j) } -> FT_WFO.
- intro H. 
- destruct H as [j ej]. 
- destruct j.
- split. 
- exact 1.
- split.
- exact 0. split. exact 0. split. exact 0. exact 0.
- destruct p as [[[[[ba t] p] bl] e] h].
- split.
- exact 0.
- split.
- exact (length (proj1_sig h)).
- split.
- exact (Sum_nat (map (fun c => length (p c)) (snd bl)))%nat.
- split.
- exact (length (fst bl)).
- exact (length ba).
- contradiction ej.
- unfold FT_final. 
- exists l.
- reflexivity.
-Defined.
-
-(* lexicographic order behaves as expected *)
-Lemma wfo_aux:  forall a b c d a' b' c' d' e e': nat,
- (lt_mnpqr (mk5 (a, (b, (c, (d,e))))) (mk5 (a', (b', (c',(d',e')))))) <->
-   (a < a' \/
-   (a = a' /\ b < b' \/
-   (a = a' /\ b = b' /\ c < c' \/
-   (a = a' /\ b = b' /\ c = c' /\ d < d' \/
-   (a = a' /\ b = b' /\ c = c' /\ d = d' /\ e < e'))))).
-Proof.
- intros. split. unfold lt_mnpqr. unfold mk5. simpl. intro H. inversion H. subst. 
-  (* case 1st component are below one another *)
- auto.
-  (* case 1st components are equal *)
- unfold lt_mnpq in H1. inversion H1. subst. auto.
-  (* case 1st and 2nd components are equal and 3rd are below one another *)
-  unfold lt_npq in H6.
-  inversion H6.
-  right;right;left;auto.
-  (* case where the first three components are equal but the last decreases*)
-  unfold lt_pq in H11. inversion H11. subst.
-  right;right;right;auto.        
-  (* the case where the first four are equal and the last decreases *)
-  right;right;right;right. subst. auto.
-  (* right-to-left direction *)
- intro H. destruct H.
-  (* case 1st components are below one another *)
- unfold lt_mnpqr. apply left_lex. assumption.
- destruct H.
-  (* case 1st components are equal and 2nd components are below one another *)
- destruct H as [H1 H2]. subst. apply right_lex. apply left_lex. assumption.
-  (* case 1st and 2nd components are identical, and 3rd components are below one another *)
- destruct H as [H1 | H2]. destruct H1 as [H11 [H12 H13]]. subst. repeat apply right_lex || apply right_lex || apply left_lex. assumption. destruct H2 as [H1 | H2]. destruct H1 as [H11 [H12 [H13 H14]]]. subst.
- repeat apply right_lex || apply right_lex || apply left_lex. auto.
- destruct H2 as [H21 [H22 [H23 [H24 H25]]]]. subst. repeat apply right_lex. assumption.
-Qed.
-
-Definition mk_nfj: forall j: FT_Judgement, forall e: not (FT_final j), { j : FT_Judgement | not (FT_final j) }.
-  intros j e. exists j. assumption.
-Defined.
 
 Lemma map_cons: forall (A: Type) (l: list A) (x: A) (f: A -> nat), map f (x::l) = (f x) :: map f l. 
 Proof.
@@ -581,7 +399,7 @@ rewrite IHl1.
 omega.
 Qed.
 
-Lemma sum_less_than : forall (f: cand -> nat) (f' : cand -> nat) (h: list cand) c,
+Lemma sum_less_than : forall (f: X.cand -> nat) (f' : X.cand -> nat) (h: list X.cand) c,
  (forall d, d <> c -> (f d = f' d)) -> (f' c < f c)%nat -> (In c h) -> (NoDup h) ->
  (Sum_nat (map f' h) < Sum_nat (map f h))%nat.
 Proof.
@@ -589,7 +407,7 @@ intros f f' h c H1 H2 H3 H12.
 (*destruct H as [H1 [H2 [H3 H12]]].*)
 specialize (in_split c h H3). intros H4. destruct H4 as [h1 [h2 H5]].
 rewrite H5.
-assert (hyp: forall g: cand -> nat, map g (h1++ c:: h2) = (map g h1) ++ ([g c] ++ (map g h2))). intro g.
+assert (hyp: forall g: X.cand -> nat, map g (h1++ c:: h2) = (map g h1) ++ ([g c] ++ (map g h2))). intro g.
 rewrite map_app.
 assert (hyp2: map g (c:: h2) = (g c) :: map g h2).
 rewrite map_cons. auto.
@@ -597,7 +415,7 @@ rewrite hyp2.
 apply (app_inv_head (map g h1)).
 simpl. auto.
 specialize (hyp f).
-assert (hyp': forall g': cand -> nat, map g' (h1++ c:: h2) = (map g' h1) ++ ([g' c] ++ (map g' h2))). intro g'.
+assert (hyp': forall g': X.cand -> nat, map g' (h1++ c:: h2) = (map g' h1) ++ ([g' c] ++ (map g' h2))). intro g'.
 rewrite map_app.
 assert (hyp2: map g' (c:: h2) = (g' c) :: map g' h2).
 rewrite map_cons. auto.
@@ -653,8 +471,312 @@ rewrite hyp8.
 omega.
 Qed.
 
+
+(* we can find a candidate with least no of first prefs *)
+Lemma list_min : forall A:Type, forall l: list A, forall f: A -> Q,
+ (l = []) + (existsT m:A, (In m l /\ (forall b:A, In b l ->(f m <= f b)%Q))).
+Proof.
+ intros.
+ induction l as [ | l ls ].
+ left. trivial.
+ destruct IHls.
+ right.
+ exists l. split.
+ apply (in_eq l ls). intros b ass.
+ assert (l = b \/ In b ls).
+ apply (in_inv ass). destruct H. replace l with b. intuition. replace ls with ([] : list A) in H.
+ contradict H.
+ right. destruct s. destruct a. 
+ assert (sumbool ((f x < (f l))%Q) (((f l) <= (f x))%Q)).
+ apply (Qlt_le_dec (f x) (f l))%Q.
+ assert (sumbool ((f x <= (f l))%Q) (((f l) <= (f x))%Q)).
+ intuition.
+ destruct H2.
+  (* x is the minimum *)
+ exists x. split.
+ apply (in_cons l x ls). assumption. intros b ass.
+ assert (l = b \/ In b ls).
+ apply (in_inv ass).
+ destruct H2. replace b with l. assumption.
+ apply (H0 b H2).
+  (* l is the minimum *)
+ exists l. split.
+ apply (in_eq l ls).
+ intros b ass.
+ assert (l = b \/ In b ls). apply (in_inv ass). destruct H2. 
+ replace l with b. intuition.
+ specialize (H0 b H2).
+ apply (Qle_trans (f l) (f x) (f b)). assumption. assumption.
+Defined. 
+
+(*if a list is not empty, then there exist an element which has the greatest value w.r.t. function f*)
+Lemma list_max : forall A:Type, forall l: list A, forall f: A -> Q,
+   (l = []) + (existsT m:A, (In m l /\ (forall b:A, In b l ->(f b <= f m)%Q))).
+Proof.
+ intros.
+ induction l.
+ left;auto.
+ destruct IHl.
+ right.
+ subst.
+ exists a.
+ split.
+ simpl;left;auto.
+ intros.
+ destruct H.
+ subst.
+ apply (Qle_refl (f b)).
+ inversion H.
+ right.
+ destruct s.
+ destruct a0.
+ assert (sumbool ((f a < f x)%Q) ((f x <= f a)%Q)).
+ apply (Qlt_le_dec (f a) (f x)).
+ destruct H1.
+ exists x.
+ split.
+ right;auto.
+ intros.
+ assert (a= b \/ In b l) by apply (in_inv H1).
+ destruct H2.
+ subst.
+ destruct H1.
+ apply (Qlt_le_weak (f b)(f x)).
+ assumption.
+ apply H0.
+ auto.
+ apply H0.
+ auto.
+ exists a.
+ split.
+ left;auto.
+ intros.
+ assert (a=b \/ In b l) by apply (in_inv H1).
+ destruct H2.
+ rewrite H2.
+ apply (Qle_refl (f b)).
+ apply (Qle_trans (f b)(f x)(f a)).
+ apply H0.
+ auto.
+ assumption.
+Qed.
+
+Lemma list_max_cor: forall A:Type, forall l: list A, forall f: A -> Q,[]<> l -> existsT m:A, (In m l /\ (forall a:A, In a l -> (f a <= f m)%Q)). 
+Proof.
+ intros.
+ specialize (list_max A l f).
+ intros.
+ destruct X.
+ rewrite e in H.
+ contradiction H.
+ auto.
+ assumption.
+Qed.
+
+
+(*Section Generic_Machine.*)
+
+(* initial, intermediate and final states in vote counting *)
+
+ Inductive Machine_States :=
+  initial:
+     list ballot -> Machine_States 
+  |state:                                             (** intermediate states **)
+    list ballot                                       (* uncounted votes *)
+    * list (X.cand -> Q)                              (* tally *)
+    * (X.cand -> list (list ballot))                  (* pile of ballots *)
+    * ((list X.cand) * (list X.cand))                 (* backlog *)
+    * {elected: list X.cand | length  elected <= X.st}(* elected candidates *)
+    * {hopeful: list X.cand | NoDup hopeful}          (* continuing candidates *)
+      -> Machine_States
+  |winners:                                           (** final state **)
+      list X.cand -> Machine_States.                   (* election winners *)
+
+Definition State_final (a : Machine_States) : Prop :=
+ exists w, a = winners (w).
+
+Definition State_initial (a : Machine_States) : Prop :=
+ exists (ba : list ballot), a = initial (ba).
+
+Lemma final_dec: forall j : Machine_States, (State_final j) + (not (State_final j)).
+Proof. 
+ intro j. 
+  destruct j;
+   repeat (right;unfold State_final;unfold not;intro H;destruct H;discriminate) 
+     || 
+       left;unfold State_final;exists l;reflexivity.
+Defined.
+
+Lemma initial_dec: forall j: Machine_States, (State_initial j) + not (State_initial j).
+Proof.
+ intro j.
+  destruct j;
+    repeat (left;unfold State_initial;exists l;reflexivity)
+        ||
+          (right;intro H;inversion H; discriminate).
+Qed.        
+ 
+
+(* Rules *)
+Definition FT_Rule := Machine_States -> Machine_States -> Prop.
+
+(* The set (nat)^5 to be used as the set on which we impose a lexicographic order *)
+Definition Product_Five_NatSet := nat * (nat * (nat * (nat * nat))). 
+
+ Definition DependentNat_Prod2 := sigT (A:= nat) (fun a => nat).
+ Definition DependentNat_Prod3 := sigT (A:= nat) (fun a => DependentNat_Prod2).
+ Definition DependentNat_Prod4 := sigT (A:= nat) (fun a => DependentNat_Prod3).
+ Definition DependentNat_Prod5 := sigT (A:= nat) (fun a => DependentNat_Prod4).
+
+ Definition Make_DependentNat2  :
+   nat * nat -> DependentNat_Prod2.
+  intros (p,q).
+  exists p.
+  exact q.
+ Defined.
+
+ Definition Make_DependentNat3 :
+   nat * (nat * nat) -> DependentNat_Prod3.
+  intros (n, p_q).
+  exists n.
+  exact (Make_DependentNat2 p_q).
+ Defined. 
+
+ Definition Make_DependentNat4 :
+   nat * (nat * (nat * nat)) -> DependentNat_Prod4.
+  intros (m, n_p_q).
+  exists m.
+  exact (Make_DependentNat3 n_p_q).
+ Defined.
+
+ Definition Make_DependentNat5 :
+   nat * (nat * (nat * (nat * nat))) -> DependentNat_Prod5.
+  intros (m,n_p_q_r).
+  exists m.
+  exact (Make_DependentNat4 n_p_q_r).
+ Defined.
+
+ Definition LexOrdNat_Aux1 :
+ DependentNat_Prod2 -> DependentNat_Prod2 -> Prop :=
+ (lexprod nat (fun a => nat) Peano.lt (fun a:nat =>Peano.lt)).
+
+ Definition LexOrdNat_Aux2 :
+ DependentNat_Prod3 -> DependentNat_Prod3 -> Prop :=
+ (lexprod nat (fun a => DependentNat_Prod2) Peano.lt (fun a:nat =>LexOrdNat_Aux1)).
+
+ Definition LexOrdNat_Aux3 :
+ DependentNat_Prod4 -> DependentNat_Prod4 -> Prop:=
+ (lexprod nat (fun a => DependentNat_Prod3) Peano.lt (fun (a:nat) => LexOrdNat_Aux2)).
+
+ Definition LexOrdNat:
+ DependentNat_Prod5 -> DependentNat_Prod5 -> Prop :=
+ (lexprod nat (fun a => DependentNat_Prod4) Peano.lt (fun (a:nat) => LexOrdNat_Aux3)).
+
+Lemma wf_Lexprod1 : well_founded LexOrdNat_Aux2.
+ unfold LexOrdNat_Aux2. apply wf_lexprod.
+ apply lt_wf.
+ intro n.
+ unfold LexOrdNat_Aux1;apply wf_lexprod.
+ apply lt_wf.
+ intro m; apply lt_wf.
+Qed.
+
+(*LexOrdNat_Aux3 is a well founded ordering*)
+Lemma wf_Lexprod : well_founded LexOrdNat_Aux3.
+Proof.
+ red in |-*;apply wf_lexprod. apply lt_wf. intro n.
+ red in |-*;apply wf_lexprod. apply lt_wf. intro m.
+ red in |-*;apply wf_lexprod. apply lt_wf. intro p.
+ apply lt_wf.
+Qed.
+
+ Lemma wf_LexOrdNat : well_founded LexOrdNat.
+ Proof.
+  red in |-*; apply wf_lexprod. apply lt_wf. intro n.
+  red in |-*; apply wf_lexprod. apply lt_wf. intro m.
+  red in |-*; apply wf_lexprod. apply lt_wf. intro p.
+  red in |-*; apply wf_lexprod. apply lt_wf. intro r.
+  apply lt_wf.
+ Qed.
+
+(* imposing a well-found ordering on (nat)^5 *)
+
+  Definition Order_NatProduct : Product_Five_NatSet -> Product_Five_NatSet -> Prop :=
+    (fun x y : nat * (nat * (nat * (nat * nat))) =>
+     LexOrdNat (Make_DependentNat5 x) (Make_DependentNat5 y)).
+
+Lemma Order_NatProduct_wf : well_founded Order_NatProduct.
+ unfold Order_NatProduct. 
+ apply wf_inverse_image.
+ apply wf_LexOrdNat.
+Qed.
+
+
+
+(* measure function maps to ({0,1},length h, Sum (map (\.c -> length (concat p c)) snd bl), length bl, length ba) *)
+
+ Definition Measure_States: {j:Machine_States |not (State_final j)} -> Product_Five_NatSet.
+  intro H. destruct H as [j ej]. destruct j.
+  split. exact 1.
+  split. exact 0. split. exact 0. split. exact 0. exact 0.
+  destruct p as [[[[[ba t] p] bl] e] h].
+  split. exact 0.
+  split. exact (length (proj1_sig h)).
+  split. exact (Sum_nat (map (fun c => length (concat (p c))) (snd bl)))%nat.
+  split. exact (length (fst bl)). exact (length ba).
+  contradiction ej.
+  unfold State_final. 
+  exists l. reflexivity.
+ Defined.
+
+(* lexicographic order behaves as expected *)
+
+ Lemma wfo_aux:  forall a b c d a' b' c' d' e e': nat,
+     (LexOrdNat (Make_DependentNat5 (a, (b, (c, (d,e)))))
+                (Make_DependentNat5 (a', (b', (c',(d',e')))))) <->
+     (a < a' \/
+     (a = a' /\ b < b' \/
+     (a = a' /\ b = b' /\ c < c' \/
+     (a = a' /\ b = b' /\ c = c' /\ d < d' \/
+     (a = a' /\ b = b' /\ c = c' /\ d = d' /\ e < e'))))).
+
+ Proof.
+ intros. split. unfold LexOrdNat. unfold Make_DependentNat5. simpl. intro H. inversion H. subst. 
+  (* case 1st component are below one another *)
+ auto.
+  (* case 1st components are equal *)
+ unfold LexOrdNat_Aux3 in H1. inversion H1. subst. auto.
+  (* case 1st and 2nd components are equal and 3rd are below one another *)
+  unfold LexOrdNat_Aux2 in H6.
+  inversion H6.
+  right;right;left;auto.
+  (* case where the first three components are equal but the last decreases*)
+  unfold LexOrdNat_Aux1 in H11. inversion H11. subst.
+  right;right;right;auto.        
+  (* the case where the first four are equal and the last decreases *)
+  right;right;right;right. subst. auto.
+  (* right-to-left direction *)
+ intro H. destruct H.
+  (* case 1st components are below one another *)
+ unfold LexOrdNat. apply left_lex. assumption.
+ destruct H.
+  (* case 1st components are equal and 2nd components are below one another *)
+ destruct H as [H1 H2]. subst. apply right_lex. apply left_lex. assumption.
+  (* case 1st and 2nd components are identical, and 3rd components are below one another *)
+ destruct H as [H1 | H2]. destruct H1 as [H11 [H12 H13]]. subst. repeat apply right_lex || apply right_lex || apply left_lex. assumption. destruct H2 as [H1 | H2]. destruct H1 as [H11 [H12 [H13 H14]]]. subst.
+ repeat apply right_lex || apply right_lex || apply left_lex. auto.
+ destruct H2 as [H21 [H22 [H23 [H24 H25]]]]. subst. repeat apply right_lex. assumption.
+Qed.
+
+Definition IsNonFinal: forall j: Machine_States, forall e: not (State_final j), { j : Machine_States | not (State_final j) }.
+  intros j e. exists j. assumption.
+Defined.
+
+
+
+
 (*
-Definition Is_Legitimate_Elim_two (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition Is_Legitimate_Elim_two (R: Machine_States -> Machine_States -> Prop) :=
    (forall premise, forall t p e h r, (premise = state ([],t, p, [], e, h, r)) ->
      (exists c, In c r /\
        (p c) <> [] ) -> exists conc, R premise conc)  *
@@ -665,10 +787,10 @@ Definition Is_Legitimate_Elim_two (R: FT_Judgement -> FT_Judgement -> Prop) :=
      (forall d, d <> c -> length (np d) = length (p d)) /\   
      (conclusion = state (nba, t, np, [], e, h, r))).
 
-Lemma dec_ElimTwo : forall R (p c : FT_Judgement),
- (Is_Legitimate_Elim_two R) -> R p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_ElimTwo : forall R (p c : Machine_States),
+ (Is_Legitimate_Elim_two R) -> R p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
 intros R p c ss Hr ep ec.
 unfold Is_Legitimate_Elim_two in ss.
@@ -683,9 +805,9 @@ destruct c. inversion Hs34.
 destruct p as [[[[[[ba11 t11] p11] bl11] e11] h11] r11].
 destruct p1 as [[[[[[ba22 t22] p22] bl22] e22] h22] r22].
 inversion Hs1. inversion Hs34. subst.
-unfold FT_m.
+unfold Measure_States.
 simpl.
-unfold FT_wfo.
+unfold Order_NatProduct.
 rewrite wfo_aux.
 right;left. split. auto.
 assert (hypo: forall d, d <> weak -> length (p0 d) = length (np d)).
@@ -698,76 +820,79 @@ omega.
 inversion Hs34.
 inversion Hs1.
 Qed.
-*)
-Definition SanityCheck_Initial_App (R : FT_Judgement -> FT_Judgement -> Prop) :=  
+*)  
+Definition SanityCheck_Initial_App (R : Machine_States -> Machine_States -> Prop) :=  
   forall premise, forall ba, (premise = initial ba) -> existsT conclusion,
      (conclusion = state (Filter ba, [nty], nas, (nbdy,nbdy), emp_elec, all_hopeful)) *  
       R premise conclusion.
 
-Definition SanityCheck_Initial_Red (R : FT_Judgement -> FT_Judgement -> Prop) := 
+Definition SanityCheck_Initial_Red (R : Machine_States -> Machine_States -> Prop) := 
   forall p c, R p c -> exists ba ba' t ass bl e h, (p = initial ba) /\
   (c = state (ba', t, ass, bl, e, h)).
 
-Definition SanityCheck_Count_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Count_App (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise, forall ba t p  bl h e , (premise = state (ba, t, p ,bl ,e, h)) -> (ba <> []) ->
     existsT conclusion, (R premise conclusion)).
 
-Definition SanityCheck_Count_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
- (forall (p: FT_Judgement) (c: FT_Judgement), R p c -> exists ba1 ba2 t1 t2 p1 p2 bl e h, 
+Definition SanityCheck_Count_Red (R: Machine_States -> Machine_States -> Prop) :=
+ (forall (p: Machine_States) (c: Machine_States), R p c -> exists ba1 ba2 t1 t2 p1 p2 bl e h, 
    (p = state (ba1, t1, p1, bl, e, h)) /\ 
    (c = state (ba2, t2 :: t1, p2, bl, e, h)) /\ 
    ( length ba2 < length ba1) /\
-   (Sum_nat (map (fun c => length (p1 c)) (snd bl)) = (Sum_nat (map (fun c => length (p2 c)) (snd bl))))).
-
+   (Sum_nat (map (fun c => length (concat (p1 c))) (snd bl)) = 
+         (Sum_nat (map (fun c => length (concat (p2 c))) (snd bl))))).
+(*
 Definition Is_empty (l : list cand) :=
  match l with
    [] => true
   |_ => false
 end.
-
+*)
 (* note that I have put the null tally as the default value for head in case of empty list *)
-Definition SanityCheck_Transfer1_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
- (forall premise, forall t p (bl: (list cand) * (list cand)) e h, 
- (premise = state ([], t, p, (fst bl, []), e, h)) -> (length (proj1_sig e) < st) /\ 
- (fst bl <> []) /\ (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) -> 
+Definition SanityCheck_Transfer1_App (R: Machine_States -> Machine_States -> Prop) :=
+ (forall premise, forall t p (bl: (list X.cand) * (list X.cand)) e h, 
+ (premise = state ([], t, p, (fst bl, []), e, h)) -> (length (proj1_sig e) < X.st) /\ 
+ (fst bl <> []) /\ (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) -> 
     existsT conc, R premise conc).
 
-Definition SanityCheck_Transfer2_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Transfer2_App (R: Machine_States -> Machine_States -> Prop) :=
  forall premise, forall t p bl1 bl2 c e h , (premise = state ([], t, p, (bl1, c::bl2), e, h)) ->
- (length (proj1_sig e) < st) /\ (bl1 <> []) /\ (p c = []) /\ 
- (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) ->
+ (length (proj1_sig e) < X.st) /\ (bl1 <> []) /\ (concat (p c) = []) /\ 
+ (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) ->
      existsT conc, R premise conc.
 
-Definition SanityCheck_Transfer3_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Transfer3_App (R: Machine_States -> Machine_States -> Prop) :=
  forall premise, forall t p bl1 bl2 c e h , (premise = state ([], t, p, (bl1, c::bl2), e, h)) ->
- (length (proj1_sig e) < st) /\ (bl1 <> []) /\ (p c <> []) /\ 
- (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) ->
+ (length (proj1_sig e) < X.st) /\ (bl1 <> []) /\ (concat (p c) <> []) /\ 
+ (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) ->
      existsT conc, R premise conc.
 
-Definition SanityCheck_Transfer_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Transfer_Red (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise conclusion, R premise conclusion ->
    exists nba t p np bl nbl h e,
    (premise = state ([], t, p, bl, e, h)) /\
    (
      (
       (length (fst nbl) < length (fst bl)) /\ 
-       (Sum_nat (map (fun c => length (p c)) (snd bl)) = Sum_nat (map (fun c => length (np c)) (snd nbl)))
+       (Sum_nat (map (fun c => length (concat (p c))) (snd bl)) = 
+             Sum_nat (map (fun c => length (concat (np c))) (snd nbl)))
      )
     \/ (
         (length (fst nbl) = length (fst bl)) /\ 
-          (Sum_nat (map (fun c => length (np c)) (snd nbl)) < Sum_nat (map (fun c => length (p c)) (snd bl)))
+          (Sum_nat (map (fun c => length (concat (np c))) (snd nbl)) < 
+                               Sum_nat (map (fun c => length (concat (p c))) (snd bl)))
        )
     )
  /\
    (conclusion = state (nba, t, np, nbl, e, h))). 
 
-Definition SanityCheck_Elect_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Elect_App (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise, forall t p bl e h, (premise = state ([], t, p, bl, e, h)) ->
-     (existsT (c: cand), 
-     (length (proj1_sig e)) + 1 <= st /\  
-     In c (proj1_sig h) /\ ((hd nty t) (c) >= quota)%Q) -> existsT conc, R premise conc).
+     (existsT (c: X.cand), 
+     (length (proj1_sig e)) + 1 <= X.st /\  
+     In c (proj1_sig h) /\ ((hd nty t) (c) >= X.quota)%Q) -> existsT conc, R premise conc).
 
-Definition SanityCheck_Elect_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Elect_Red (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise conclusion, R premise conclusion ->
      exists t p np bl nbl e ne nh h, 
      (premise = state ([], t, p, bl, e, h)) /\
@@ -775,35 +900,35 @@ Definition SanityCheck_Elect_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
           (length (proj1_sig e) < length (proj1_sig ne)) /\
      (conclusion = state ([], t, np, nbl, ne, nh))).
 
-Definition SanityCheck_Elim_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Elim_App (R: Machine_States -> Machine_States -> Prop) :=
   (forall premise, forall t p e h bl2, (premise = state ([], t, p, ([], bl2), e, h)) ->
-     length (proj1_sig e) + length (proj1_sig h) > st /\
-     (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) -> existsT conc, R premise conc).
+     length (proj1_sig e) + length (proj1_sig h) > X.st /\
+     (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) -> existsT conc, R premise conc).
 
-Definition SanityCheck_Elim_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Elim_Red (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise conclusion, R premise conclusion ->
      exists nba t p np e h nh bl2 nbl2,
      (premise = state ([], t, p, ([], bl2), e, h)) /\
      length (proj1_sig nh) < length (proj1_sig h) /\
      (conclusion = state (nba, t, np, ([], nbl2), e, nh))).
 
-Definition SanityCheck_Hwin_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Hwin_App (R: Machine_States -> Machine_States -> Prop) :=
   (forall premise, forall ba t p bl e h, (premise = state (ba, t, p, bl, e, h)) ->
-     length (proj1_sig e) + (length (proj1_sig h)) <= st -> existsT conc, R premise conc).
+     length (proj1_sig e) + (length (proj1_sig h)) <= X.st -> existsT conc, R premise conc).
 
 
-Definition SanityCheck_Hwin_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Hwin_Red (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise conclusion, R premise conclusion ->
      exists w ba t p bl e h,
       (premise = state (ba, t, p, bl, e, h)) /\
       w = (proj1_sig e) ++ (proj1_sig h) /\ 
       (conclusion = winners w)).
 
-Definition SanityCheck_Ewin_App (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Ewin_App (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise, forall ba t p bl e h, (premise = state (ba, t, p, bl, e, h)) ->
-    length (proj1_sig e) = st -> existsT conc, R premise conc).
+    length (proj1_sig e) = X.st -> existsT conc, R premise conc).
 
-Definition SanityCheck_Ewin_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
+Definition SanityCheck_Ewin_Red (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise conclusion, R premise conclusion ->
     exists w ba t p bl e h,
     (premise = state (ba, t, p, bl, e, h)) /\
@@ -812,39 +937,39 @@ Definition SanityCheck_Ewin_Red (R: FT_Judgement -> FT_Judgement -> Prop) :=
 
 Record STV := 
    mkSTV {qu: Q;
-          initStep: FT_Judgement -> FT_Judgement -> Prop;
+          initStep: Machine_States -> Machine_States -> Prop;
           evidence_applicability_initStep: (SanityCheck_Initial_App initStep);
           evidence_reducibility_initStep: (SanityCheck_Initial_Red initStep);
-          count: FT_Judgement -> FT_Judgement -> Prop;
+          count: Machine_States -> Machine_States -> Prop;
           evidence_applicability_count: (SanityCheck_Count_App count);
           evidence_reducibility_count: (SanityCheck_Count_Red count);    
-          transfer1_elected: FT_Judgement -> FT_Judgement -> Prop;
+          transfer1_elected: Machine_States -> Machine_States -> Prop;
           evidence_applicability_transfer1: (SanityCheck_Transfer1_App transfer1_elected);
           evidence_reducibility_transfer1: (SanityCheck_Transfer_Red transfer1_elected);
-          transfer2_elected: FT_Judgement -> FT_Judgement -> Prop;
+          transfer2_elected: Machine_States -> Machine_States -> Prop;
           evidence_applicability_transfer2_elected: (SanityCheck_Transfer2_App transfer2_elected);
           evidence_reducibility_transfer2_elected: (SanityCheck_Transfer_Red transfer2_elected);
-          transfer_elim: FT_Judgement -> FT_Judgement -> Prop;
+          transfer_elim: Machine_States -> Machine_States -> Prop;
           evidence_applicability_transfer2: (SanityCheck_Transfer3_App transfer_elim);
           evidence_reducibility_transfer2: (SanityCheck_Transfer_Red transfer_elim);
-          elect: FT_Judgement -> FT_Judgement -> Prop;
+          elect: Machine_States -> Machine_States -> Prop;
           evidence_applicability_elect: (SanityCheck_Elect_App elect);
           evidence_reducibility_elect: (SanityCheck_Elect_Red elect);
-          elim: FT_Judgement -> FT_Judgement -> Prop;
+          elim: Machine_States -> Machine_States -> Prop;
           evidence_applicability_elim: (SanityCheck_Elim_App elim);
           evidence_reducibility_elim: (SanityCheck_Elim_Red elim);
-          hwin: FT_Judgement -> FT_Judgement -> Prop;
+          hwin: Machine_States -> Machine_States -> Prop;
           evidence_applicability_hwin: (SanityCheck_Hwin_App hwin);
           evidence_reducibility_hwin: (SanityCheck_Hwin_Red hwin);         
-          ewin: FT_Judgement -> FT_Judgement -> Prop;
+          ewin: Machine_States -> Machine_States -> Prop;
           evidence_applicability_ewin: (SanityCheck_Ewin_App ewin);
           evidence_reducibility_ewin: (SanityCheck_Ewin_Red ewin)}.
 
 (* beginning of measure decreasing proof for new formalised rules*)
-Lemma dec_Initial : forall (s: STV) (p c : FT_Judgement),
- initStep s p c  -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Initial : forall (s: STV) (p c : Machine_States),
+ initStep s p c  -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof. 
  intros s p c H ep ec.
  destruct s. 
@@ -857,23 +982,23 @@ Proof.
  destruct H0 as [ba [ba' [t [ass [bl [e [h [Hev21 Hev22]]]]]]]].
  inversion Hev22. 
  destruct p as [[[[[ba1 t1] p1] bl1] e1] h1].
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite wfo_aux.
  left;auto.
- contradict ec. unfold FT_final. exists l0. reflexivity.
+ contradict ec. unfold State_final. exists l0. reflexivity.
  specialize (evidence_reducibility_initStep0 (state p) c).
  intuition.
  destruct H0 as [ba [ba' [t [ass [bl [e1 [h1 [Hev21 Hev22]]]]]]]].
  inversion Hev21.
- contradict ep. unfold FT_final. exists l. auto.
+ contradict ep. unfold State_final. exists l. auto.
 Qed.
 
-Lemma dec_Count : forall (s: STV) (p c : FT_Judgement),
- count s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Count : forall (s: STV) (p c : Machine_States),
+ count s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s. 
@@ -888,23 +1013,23 @@ Proof.
  inversion Hev22.
  destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
  destruct p0 as [[[[[ba22 t22] p22] bl22] e22] h22].
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite -> wfo_aux.
  inversion Hev22. inversion Hev211. subst. 
  right. right. right. right.
  split. auto.
  split.  auto. rewrite Hev24. auto.
  contradict ec.
- unfold FT_final. exists l. reflexivity.
+ unfold State_final. exists l. reflexivity.
  contradict ep. exists l. auto.
 Qed.
 
-Lemma dec_TransferElected1 : forall (s: STV) (p c : FT_Judgement),
- transfer1_elected s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_TransferElected1 : forall (s: STV) (p c : Machine_States),
+ transfer1_elected s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s. 
@@ -919,21 +1044,21 @@ Proof.
  destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
  destruct p1 as [[[[[ba22 t22] p22] bl22] e22] h22].
  inversion Hev21. inversion Hev23. subst.
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite -> wfo_aux.
  destruct Hev22 as [Hev221 | Hev222].
  right; right;right; left. intuition.
  right; right; left.  intuition. 
- contradict ec; unfold FT_final; exists l ;auto.
+ contradict ec; unfold State_final; exists l ;auto.
  contradict ep; exists l; auto.
 Qed.
 
-Lemma dec_TransferElected2 : forall (s: STV) (p c: FT_Judgement),
- transfer2_elected s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_TransferElected2 : forall (s: STV) (p c: Machine_States),
+ transfer2_elected s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s. 
@@ -949,21 +1074,21 @@ Proof.
  destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
  destruct p1 as [[[[[ba22 t22] p22] bl22] e22] h22].
  inversion Hev21. inversion Hev23. subst.
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite -> wfo_aux.
  destruct Hev22 as [Hev221 | Hev222].
  right; right;right; left. intuition.
  right; right; left.  intuition. 
- contradict ec; unfold FT_final; exists l ;auto.
+ contradict ec; unfold State_final; exists l ;auto.
  contradict ep; exists l; auto.
 Qed.
 
-Lemma dec_TransferEliminated : forall (s: STV) (p c : FT_Judgement),
- transfer_elim s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_TransferEliminated : forall (s: STV) (p c : Machine_States),
+ transfer_elim s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s. 
@@ -978,21 +1103,21 @@ Proof.
  destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
  destruct p1 as [[[[[ba22 t22] p22] bl22] e22] h22].
  inversion Hev21. inversion Hev23. subst.
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite -> wfo_aux.
  destruct Hev22 as [Hev221 | Hev222].
  right; right;right; left. intuition.
  right; right; left.  intuition. 
- contradict ec; unfold FT_final; exists l ;auto.
+ contradict ec; unfold State_final; exists l ;auto.
  contradict ep; exists l; auto.
 Qed.
 
-Lemma dec_Elect : forall (s: STV) (p c : FT_Judgement),
- elect s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Elect : forall (s: STV) (p c : Machine_States),
+ elect s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s.
@@ -1007,19 +1132,19 @@ Proof.
  destruct p as [[[[[ba11 t11] p11] bl11] e11] h11].
  destruct p1 as [[[[[ba22 t22] p22] bl22] e22] h22].
  inversion Hev1. inversion Hev4. subst.
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite -> wfo_aux.
  right; left.  intuition.
  inversion Hev1. 
  inversion Hev4.
 Qed.
 
-Lemma dec_Elim : forall (s: STV) (p c : FT_Judgement),
- elim s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Elim : forall (s: STV) (p c : Machine_States),
+ elim s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s.
@@ -1039,19 +1164,19 @@ Proof.
  inversion K1.
  inversion K3.
  subst.
- unfold FT_m.
+ unfold Measure_States.
  simpl.
- unfold FT_wfo.
+ unfold Order_NatProduct.
  rewrite wfo_aux.
  right;left. intuition.
  contradict ec; exists l; reflexivity.
  contradict ep; exists l; auto.
 Qed.
 
-Lemma dec_Hwin  : forall (s: STV) (p c : FT_Judgement),
- hwin s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Hwin  : forall (s: STV) (p c : Machine_States),
+ hwin s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s.
@@ -1068,10 +1193,10 @@ Proof.
  contradict ep; exists l; auto.
 Qed.
 
-Lemma dec_Ewin : forall (s: STV) (p c : FT_Judgement),
- ewin s p c -> forall (ep : ~ FT_final p) (ec : ~ FT_final c),
-FT_wfo (FT_m (mk_nfj c ec))
-  (FT_m (mk_nfj p ep)).
+Lemma dec_Ewin : forall (s: STV) (p c : Machine_States),
+ ewin s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Order_NatProduct (Measure_States (IsNonFinal c ec))
+  (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s.
@@ -1089,10 +1214,10 @@ Proof.
  contradict ep; exists l; auto.
 Qed.
  
-Lemma measure_dec : forall (s: STV) (p c: FT_Judgement), (initStep s p c) \/ (count s p c) \/ 
+Lemma measure_dec : forall (s: STV) (p c: Machine_States), (initStep s p c) \/ (count s p c) \/ 
     (elect s p c) \/ (transfer1_elected s p c) \/ (transfer2_elected s p c) \/ (transfer_elim s p c)  
                   \/ (elim s p c) \/ (hwin s p c) \/ (ewin s p c) -> 
-    forall (ep : ~ FT_final p) (ec: ~ FT_final c), FT_wfo (FT_m (mk_nfj c ec)) (FT_m (mk_nfj p ep)).   
+    forall (ep : ~ State_final p) (ec: ~ State_final c), Order_NatProduct (Measure_States (IsNonFinal c ec)) (Measure_States (IsNonFinal p ep)).   
 Proof.
  intros s p c H ep ec.
  destruct H.
@@ -1119,7 +1244,7 @@ Qed.
                                     emp_elec,all_hopeful)) *)
 
 
-Inductive Certificate (st: nat) (bs: list ballot) (s: STV) (j0: FT_Judgement): FT_Judgement -> Type:=
+Inductive Certificate (st: nat) (bs: list ballot) (s: STV) (j0: Machine_States): Machine_States -> Type:=
   start:  forall j, (j = j0) -> Certificate st bs s j0 j
  |appInit: forall j1 j2, Certificate st bs s j0 j1 -> initStep s j1 j2 -> Certificate st bs s j0 j2 
  |appCount: forall j1 j2, Certificate st bs s j0 j1 -> count s j1 j2 -> Certificate st bs s j0 j2   
@@ -1131,7 +1256,7 @@ Inductive Certificate (st: nat) (bs: list ballot) (s: STV) (j0: FT_Judgement): F
  | appHwin: forall j1 j2, Certificate st bs s j0 j1 -> hwin s j1 j2 -> Certificate st bs s j0 j2
  | appEwin: forall j1 j2, Certificate st bs s j0 j1 -> ewin s j1 j2 -> Certificate st bs s j0 j2.
 
-Lemma Rule_Application : forall (s: STV) (j1: FT_Judgement), ~ (FT_final j1) -> 
+Lemma Rule_Application : forall (s: STV) (j1: Machine_States), ~ (State_final j1) -> 
    existsT j2, {initStep s j1 j2} + {count s j1 j2} + {elect s j1 j2} + {transfer1_elected s j1 j2} + 
    {transfer2_elected s j1 j2} + {transfer_elim s j1 j2} + {elim s j1 j2} + {hwin s j1 j2} + {ewin s j1 j2}. 
 Proof.
@@ -1146,12 +1271,12 @@ Proof.
  left; left; left; left; left;left. auto.
  simpl.
  destruct p as [[[[[ba t] pile] bl] e] h].
- specialize (lt_eq_lt_dec (length (proj1_sig e)) st). intro LenElected.
+ specialize (lt_eq_lt_dec (length (proj1_sig e)) X.st). intro LenElected.
  (* examining if we have filled all seats *)
  destruct LenElected as [LenElected1 | LenElected2]. 
  destruct LenElected1 as [LenElected11 | LenElected12].
  (* the case where there are seats to fill *)
- specialize (le_gt_dec (length (proj1_sig e) + length (proj1_sig h)) st). intro LenElectedHopeful.
+ specialize (le_gt_dec (length (proj1_sig e) + length (proj1_sig h)) X.st). intro LenElectedHopeful.
  (* examining the length of elected and hopeful togather *)
  destruct LenElectedHopeful as [LenElectedHopeful1 | LenElectedHopeful2]. 
  (* the case where len (e ++ h) <= st *)
@@ -1166,20 +1291,20 @@ Proof.
  assert (([]<> (proj1_sig h)) -> 
        existsT d, In d (proj1_sig h) /\  (forall d', In d' (proj1_sig h) -> 
        ((hd nty t) d' <= (hd nty t) d)%Q)) by
-           apply (list_max_cor cand (proj1_sig h) (hd nty t)).
+           apply (list_max_cor X.cand (proj1_sig h) (hd nty t)).
  assert (forall (q:Q), ((forall c, In c (proj1_sig h) -> 
-   ((hd nty t)(c) < q)%Q) + (existsT c: cand, In c (proj1_sig h) /\ ((hd nty t) (c) >= q)%Q))). 
+   ((hd nty t)(c) < q)%Q) + (existsT c: X.cand, In c (proj1_sig h) /\ ((hd nty t) (c) >= q)%Q))). 
  induction (proj1_sig h).
  intro q0.
  left; intros. contradict H0.
- assert (forall a: cand, forall h : list cand, [] <> a::h).
+ assert (forall a: X.cand, forall h : list X.cand, [] <> a::h).
  intros.
  intro.
  inversion H0.
  specialize (X (H0 a l)).
  destruct X.
  destruct a0.
- assert (forall (q1: Q), ({((hd nty t) x < q1)%Q} + {(q1 <= (hd nty t) x)%Q})).
+ assert (forall (q1: Q), (sumbool (((hd nty t) x < q1)%Q) ((q1 <= (hd nty t) x)%Q))).
  intro q1.
  apply (Qlt_le_dec ((hd nty t) x) q1).
  intro q2.
@@ -1193,12 +1318,12 @@ Proof.
  right.
  exists x.
  split; auto ; auto.
- specialize (X0 quota).
+ specialize (X0 X.quota).
  destruct X0.
  destruct bl as [bl1 bl2].
  destruct bl1.
  assert ((proj1_sig h) <> []).
- specialize (list_min cand (proj1_sig h) (hd nty t)).
+ specialize (list_min X.cand (proj1_sig h) (hd nty t)).
  intro.
  destruct X0.
  destruct (proj1_sig h).
@@ -1222,14 +1347,14 @@ Proof.
  specialize (evidence_applicability_transfer3 (state ([], t, pile, (c::bl1, []), e,h)) t pile (c::bl1, []) e h).
  simpl in evidence_applicability_transfer3.
  intuition.
- assert (Hyp: (fst (c:: bl1, ([]: list cand))) = [] -> False). intro Hyp1. simpl in Hyp1. inversion Hyp1. 
+ assert (Hyp: (fst (c:: bl1, ([]: list X.cand))) = [] -> False). intro Hyp1. simpl in Hyp1. inversion Hyp1. 
  intuition.
  destruct X1 as [conc X31].
  exists conc. 
  left; left;left;left;left. right. assumption.
  (* the case where the snd of backlog is not empty, still in transfer phase*)
- assert (Hyz: {pile c0 = []} + {pile c0 <> []}).
- destruct (pile c0). left;auto. right. intro.  inversion H0.
+ assert (Hyz: sumbool (concat (pile c0) = []) (concat (pile c0) <> [])).
+ destruct (concat (pile c0)). left;auto. right. intro.  inversion H0.
  destruct Hyz as [i | j].
  (* if the snd of backlog is empty then continue with the noraml transfer of elected votes *) 
  unfold SanityCheck_Transfer2_App in evidence_applicability_transfer2_elected0 . 
@@ -1254,8 +1379,8 @@ Proof.
  unfold SanityCheck_Elect_App in evidence_applicability_elect0. 
  specialize (evidence_applicability_elect0 (state ([], t, pile, bl, e, h)) t pile bl e h (eq_refl)).
  destruct s as [c s1].
- assert (HypE2: existsT c, (length (proj1_sig e)) + 1 <= st /\ (In c (proj1_sig h)) 
-                                                           /\ (quota <= (hd nty t) c)%Q). 
+ assert (HypE2: existsT c, (length (proj1_sig e)) + 1 <= X.st /\ (In c (proj1_sig h)) 
+                                                           /\ (X.quota <= (hd nty t) c)%Q). 
  exists c.
  split. omega. 
  auto.
@@ -1286,14 +1411,14 @@ Proof.
  contradict H. exists l. reflexivity.
 Qed.
 
-Lemma Extending_Certificate : 
+Lemma Extending_Certificate : forall (bs: list ballot), 
   forall (s: STV),
-  forall j0 j1, forall (ej0: ~ FT_final j0) (ej1: ~ FT_final j1), Certificate st bs s j0 j1 ->
+  forall j0 j1, forall (ej0: ~ State_final j0) (ej1: ~ State_final j1), Certificate X.st bs s j0 j1 ->
     existsT j2, 
-        (Certificate st bs s j0 j2) * 
-        (forall ej2: (~ FT_final j2), FT_wfo (FT_m (mk_nfj j2 ej2)) (FT_m (mk_nfj j1 ej1))).                     
+        (Certificate X.st bs s j0 j2) * 
+        (forall ej2: (~ State_final j2), Order_NatProduct (Measure_States (IsNonFinal j2 ej2)) (Measure_States (IsNonFinal j1 ej1))).                     
 Proof.
- intros s j0 j1 ej0 ej1 H0.
+ intros bs s j0 j1 ej0 ej1 H0.
  specialize (Rule_Application s j1 ej1). intro H1.
  destruct H1 as [conc H11].
  destruct H11 as [LH11 | RH11]. 
@@ -1306,74 +1431,75 @@ Proof.
  destruct L7H11 as [L8H11 | L8H12].
  exists conc.
  split.
- apply (appInit st bs s j0 j1). assumption. auto.
+ apply (appInit X.st bs s j0 j1). assumption. auto.
  intro evconc. 
  apply (dec_Initial s j1 conc L8H11). 
  exists conc. 
  split.
- apply (appCount st bs s j0 j1). assumption. auto.
+ apply (appCount X.st bs s j0 j1). assumption. auto.
  apply (dec_Count s j1 conc L8H12).
  exists conc.
  split.
- apply (appElect st bs s j0 j1). assumption. auto.
+ apply (appElect X.st bs s j0 j1). assumption. auto.
  apply (dec_Elect s j1 conc L7H12). 
  exists conc. 
  split. 
- apply (appTrans1 st bs s j0 j1).  assumption. auto.
+ apply (appTrans1 X.st bs s j0 j1).  assumption. auto.
  apply (dec_TransferElected1 s j1 conc RL5H11).
  exists conc.
  split.
- apply (appTrans2 st bs s j0 j1). assumption. auto.
+ apply (appTrans2 X.st bs s j0 j1). assumption. auto.
  apply (dec_TransferElected2 s j1 conc RLLLLH11).
  exists conc.
  split.
- apply (appTrans3 st bs s j0 j1). assumption. auto.
+ apply (appTrans3 X.st bs s j0 j1). assumption. auto.
  apply (dec_TransferEliminated s j1 conc RLLLH11).
  exists conc.
  split.
- apply (appElim st bs s j0 j1). assumption. auto.
+ apply (appElim X.st bs s j0 j1). assumption. auto.
  apply (dec_Elim s j1 conc RLLH11). 
  exists conc.
  split.
- apply (appHwin st bs s j0 j1). assumption. auto.
+ apply (appHwin X.st bs s j0 j1). assumption. auto.
  apply (dec_Hwin s j1 conc RLH11).
  exists conc.
  split.
- apply (appEwin st bs s j0 j1). assumption. auto.
+ apply (appEwin X.st bs s j0 j1). assumption. auto.
  apply (dec_Ewin s j1 conc RH11). 
 Qed.
 
-Lemma Termination_Aux : 
+Lemma Termination_Aux : forall (bs: list ballot),
   forall (s: STV), 
-  forall n: FT_WFO, 
-  forall j0 (evj0: ~ FT_final j0),
-  forall j (evj: not (FT_final j)), FT_m (mk_nfj j evj) = n -> 
-        Certificate st bs s j0 j -> 
-           existsT j', (FT_final j') * (Certificate st bs s j0 j').
+  forall n: Product_Five_NatSet, 
+  forall j0 (evj0: ~ State_final j0),
+  forall j (evj: not (State_final j)), Measure_States (IsNonFinal j evj) = n -> 
+        Certificate X.st bs s j0 j -> 
+           existsT j', (State_final j') * (Certificate X.st bs s j0 j').
 Proof.                                                
- intros s n j0 evj0. 
- induction n as [w IH] using (well_founded_induction_type FT_wfo_wf).
+ intros bs s n j0 evj0. 
+ induction n as [w IH] using (well_founded_induction_type Order_NatProduct_wf).
  intros j evj Eqn Certj.
  assert (Hex: existsT j', 
-   (Certificate st bs s j0 j') * 
-   (forall evj' : not (FT_final j'), FT_wfo (FT_m (mk_nfj j' evj')) (FT_m (mk_nfj j evj)))).  
- apply (Extending_Certificate s j0 j evj0 evj Certj). 
+   (Certificate X.st bs s j0 j') * 
+   (forall evj' : not (State_final j'), Order_NatProduct (Measure_States (IsNonFinal j' evj')) (Measure_States (IsNonFinal j evj)))).  
+ apply (Extending_Certificate bs s j0 j evj0 evj Certj). 
  destruct Hex as [j' [Hex1 Hex2]].
  destruct (final_dec j') as [f | nf].
  exists j'. split. assumption. auto.
  specialize (Hex2 nf).
  rewrite <- Eqn in IH.
- destruct (IH (FT_m (mk_nfj j' nf)) Hex2 j' nf) as [j'' Hj''].
+ destruct (IH (Measure_States (IsNonFinal j' nf)) Hex2 j' nf) as [j'' Hj''].
  reflexivity.  
  assumption.
  exists j''.
  auto.
 Qed.
 
-Theorem Termination : forall j0 (evj0: ~FT_final j0), forall (s: STV), 
-                            existsT j, (FT_final j) * (Certificate st bs s j0 j).
+Theorem Termination : forall (bs: list ballot),
+forall j0 (evj0: ~State_final j0), forall (s: STV), 
+                            existsT j, (State_final j) * (Certificate X.st bs s j0 j).
 Proof.
- intros j0 evj0 s.
+ intros bs j0 evj0 s.
  destruct (final_dec j0) as [f | ea].
  (*destruct (final_dec (state (Filter bs, [nty], nas, [], 
                                     emp_elec,all_hopeful))) as [f | ea].*)
@@ -1381,32 +1507,31 @@ Proof.
                                     emp_elec,all_hopeful)). *)
  contradict evj0.
  assumption.
- apply (Termination_Aux s (FT_m (mk_nfj j0 ea)) j0 ea j0 ea).  
+ apply (Termination_Aux bs s (Measure_States (IsNonFinal j0 ea)) j0 ea j0 ea).  
  reflexivity.
  apply start. auto.
 Qed. 
 
-(* End STV_Framework.
+(*End Generic_Machine.*)
 
-Section Union_STV.
-Close Scope Q_scope.*)
+(*Section Base_Proofs.*)
 
 (* relation for `first continuing candidate' on a ballot in the list of ballots requiring attention *)
-Definition fcc (ba : list ballot) (h : list cand) (c : cand) (b : ballot): Prop := 
-  In (proj1_sig (fst b)) ((map (fun (d:ballot) => (proj1_sig (fst d)))) ba) /\
+Definition fcc (ba : list ballot) (h : list X.cand) (c : X.cand) (b : ballot): Prop := 
+  In (proj1_sig (fst b)) ((map (fun (d: ballot) => (proj1_sig (fst d)))) ba) /\
   In c h /\
-  (exists l1 l2 : list cand, 
+  (exists l1 l2 : list X.cand, 
       proj1_sig (fst b) = l1 ++ [c] ++ l2 /\ 
       forall d, (In d l1 -> ~(In d h))).
 
 (*checks if no cadidate whose name is in h, does not precede the candidate c in the list l*)
-Fixpoint is_first_hopeful (c:cand) (h: list cand) (l : list cand):=
+Fixpoint is_first_hopeful (c: X.cand) (h: list X.cand) (l : list X.cand):=
  match l with
           [] => false
-          |l0::ls =>  if (cand_in_dec c h) then
-                                               if cand_eq_dec l0 c then true 
+          |l0::ls =>  if (X.cand_in_dec c h) then
+                                               if X.cand_eq_dec l0 c then true 
                                                else                     
-                                                   if cand_in_dec l0 h then false
+                                                   if X.cand_in_dec l0 h then false
                                                    else is_first_hopeful c h ls
                       else false  
  end. 
@@ -1414,7 +1539,7 @@ Fixpoint is_first_hopeful (c:cand) (h: list cand) (l : list cand):=
 
 
 (*collects all of the ballots where c is the first continuing preference*)
-Fixpoint list_is_first_hopeful (c:cand) (h: list cand) (ba: list ballot):=
+Fixpoint list_is_first_hopeful (c: X.cand) (h: list X.cand) (ba: list ballot):=
  match ba with
           [] => []
           |b0::bas => if (is_first_hopeful c h (proj1_sig (fst b0))) 
@@ -1422,7 +1547,7 @@ Fixpoint list_is_first_hopeful (c:cand) (h: list cand) (ba: list ballot):=
                       else (list_is_first_hopeful c h bas)        
  end.
 
-Fixpoint List_IsFirst_Hopeful (c: cand) (h :list cand) (acc: list ballot) (ba: list ballot) :=
+Fixpoint List_IsFirst_Hopeful (c: X.cand) (h :list X.cand) (acc: list ballot) (ba: list ballot) :=
  match ba with
          [] => acc
         |b0 :: bas => if is_first_hopeful c h (proj1_sig (fst b0))
@@ -1431,13 +1556,13 @@ Fixpoint List_IsFirst_Hopeful (c: cand) (h :list cand) (acc: list ballot) (ba: l
  end.
 
 (*every ballot b which c is its first preference, is an elements of the uncounted ballots ba, so that ballots are not assigned to a cadidate from an illegal source*) 
-Lemma weakened_is_first_hopeful_ballot: forall c h ba, forall (d:ballot), In (proj1_sig (fst d)) (map (fun (d0:ballot) => (proj1_sig (fst (d0)))) (list_is_first_hopeful c h ba)) -> In (proj1_sig (fst d)) (map (fun (d: ballot) => (proj1_sig (fst d))) ba).
+Lemma weakened_is_first_hopeful_ballot: forall c h ba, forall (d: ballot), In (proj1_sig (fst d)) (map (fun (d0: ballot) => (proj1_sig (fst (d0)))) (list_is_first_hopeful c h ba)) -> In (proj1_sig (fst d)) (map (fun (d: ballot) => (proj1_sig (fst d))) ba).
 Proof.
  intros.
  induction ba.
  simpl in H.
  inversion H.
- specialize (list_eq_dec (cand_eq_dec) (proj1_sig (fst d)) (proj1_sig (fst a))).
+ specialize (list_eq_dec (X.cand_eq_dec) (proj1_sig (fst d)) (proj1_sig (fst a))).
  intro H'1.
  destruct H'1 as [e |n].
  rewrite e.
@@ -1456,7 +1581,7 @@ Proof.
  auto.
 Qed.
 
-Lemma nonempty_list_notempty: forall l1 l2 (c:cand), [] <> l1++[c]++l2.
+Lemma nonempty_list_notempty: forall l1 l2 (c: X.cand), [] <> l1++[c]++l2.
 Proof.
  intros l1' l2' c'.   
  intro H'.       
@@ -1475,28 +1600,28 @@ Proof.
  induction l1.
  simpl.
  inversion H1.
- destruct (cand_eq_dec d0 a).
+ destruct (X.cand_eq_dec d0 a).
  simpl.
- destruct (cand_in_dec c h) as [CandInDec1 |CandInDec2].
- destruct (cand_eq_dec a c) as [i | j].
+ destruct (X.cand_in_dec c h) as [CandInDec1 |CandInDec2].
+ destruct (X.cand_eq_dec a c) as [i | j].
  rewrite i in H3.
  inversion H3.
  assert (Hypo: In c (l1++c::l2)).
  intuition.
  contradiction H4.
- destruct (cand_in_dec a h) as [p |q].
+ destruct (X.cand_in_dec a h) as [p |q].
  auto.
  rewrite e in H2.
  contradiction q.  auto.
  simpl.
- destruct (cand_in_dec c h) as [CandInDec1 | CandInDec2].
- destruct (cand_eq_dec a c) as [i' | j'].
+ destruct (X.cand_in_dec c h) as [CandInDec1 | CandInDec2].
+ destruct (X.cand_eq_dec a c) as [i' | j'].
  rewrite i' in H3.
  inversion H3.
  exfalso.
  apply H4.
  intuition.
- destruct (cand_in_dec a h) as [p' |q'].
+ destruct (X.cand_in_dec a h) as [p' |q'].
  auto.
  apply IHl1.
  destruct H1 as [H11 |H12].
@@ -1508,7 +1633,7 @@ Proof.
 Qed.
 
 (*if c is the first continuing candidate of a ballot, then he gets that vote*)
-Lemma first_hopeful_true: forall c (h: {hopeful: list cand | NoDup hopeful}) (b:ballot) (ba: list ballot) l1 l2,(forall d, In d l1 -> ~ In d (proj1_sig h)) /\ (exists (d:ballot), (proj1_sig (fst d)) = l1++[c]++l2) /\ (In c (proj1_sig h)) -> is_first_hopeful c (proj1_sig h) (l1++[c]++l2) = true.
+Lemma first_hopeful_true: forall c (h: {hopeful: list X.cand | NoDup hopeful}) (b: ballot) (ba: list ballot) l1 l2,(forall d, In d l1 -> ~ In d (proj1_sig h)) /\ (exists (d: ballot), (proj1_sig (fst d)) = l1++[c]++l2) /\ (In c (proj1_sig h)) -> is_first_hopeful c (proj1_sig h) (l1++[c]++l2) = true.
 Proof.
  intros c h b ba l1 l2 H1.
  destruct H1 as [H11 [H12 H13]].
@@ -1528,21 +1653,21 @@ Proof.
  destruct Hypo as [Hypo1 Hypo2].
  induction l1.
  simpl.
- destruct (cand_in_dec c (proj1_sig h)) as [CandInDec1 | CandInDec2].
- destruct (cand_eq_dec c c) as [i1 |i2].
+ destruct (X.cand_in_dec c (proj1_sig h)) as [CandInDec1 | CandInDec2].
+ destruct (X.cand_eq_dec c c) as [i1 |i2].
  auto.
  contradiction i2.
  auto.
  contradiction CandInDec2.
  simpl.
- destruct (cand_in_dec c (proj1_sig h) ) as [CandInDec3 | CandInDec4].
- destruct (cand_in_dec a (proj1_sig h)).
+ destruct (X.cand_in_dec c (proj1_sig h) ) as [CandInDec3 | CandInDec4].
+ destruct (X.cand_in_dec a (proj1_sig h)).
  specialize (H11 a).
  assert (Hypo: In a (a::l1)).
  left;auto.
  specialize (H11 Hypo).
  contradiction H11.
- destruct (cand_eq_dec a c) as [CandEqDec1 |CandEqDec2].
+ destruct (X.cand_eq_dec a c) as [CandEqDec1 |CandEqDec2].
  reflexivity.
  apply IHl1.
  intros d0 H2.
@@ -1556,7 +1681,7 @@ Proof.
  assumption.
  intro H5.
  contradiction Hypo5.
- exists ((exist _ (l1++[c]++l2) Hypo4), (1)%Q).
+ exists ((exist (fun v => NoDup v /\ ([] <> v)) (l1++[c]++l2) Hypo4), (1)%Q).
  simpl.
  auto.
  inversion Hypo1.
@@ -1566,7 +1691,7 @@ Proof.
 Qed.
 
 (*c receives all of the ballots that prefer him as their first contiuing choice*)
-Lemma fcc_listballot: forall ba (h: {hopeful: list cand | NoDup hopeful}),(forall c, forall d: ballot,  fcc ba (proj1_sig h) c d -> In (proj1_sig (fst d)) (map (fun (d0:ballot) => (proj1_sig (fst d0))) (list_is_first_hopeful c (proj1_sig h) ba))).
+Lemma fcc_listballot: forall ba (h: {hopeful: list X.cand | NoDup hopeful}),(forall c, forall d: ballot,  fcc ba (proj1_sig h) c d -> In (proj1_sig (fst d)) (map (fun (d0:ballot) => (proj1_sig (fst d0))) (list_is_first_hopeful c (proj1_sig h) ba))).
 Proof.
  intros ba h c.
  intros d H4.
@@ -1575,7 +1700,7 @@ Proof.
  induction ba.
  inversion H4_1.
  simpl.
- specialize (list_eq_dec (cand_eq_dec) (proj1_sig (fst d)) (proj1_sig (fst a))).
+ specialize (list_eq_dec (X.cand_eq_dec) (proj1_sig (fst d)) (proj1_sig (fst a))).
  intro H'.
  destruct H' as [i |j ].
  rewrite<- i.
@@ -1603,18 +1728,18 @@ Proof.
 Qed.
 
 (*if c is not a continuing candidate, he does not receive any vote any more*)
-Lemma is_first_hopeful_In: forall (c:cand) h l, is_first_hopeful c h l =true -> In c l.
+Lemma is_first_hopeful_In: forall (c:X.cand) h l, is_first_hopeful c h l =true -> In c l.
 Proof.
  intros c h l H1.
  induction l.
  simpl in H1.
  inversion H1.
- destruct (cand_in_dec a h) as [i1 | i2].
+ destruct (X.cand_in_dec a h) as [i1 | i2].
  unfold is_first_hopeful in H1.
- destruct (cand_in_dec c h) as [p1 |p2].
- destruct (cand_eq_dec a c) as [j1 |j2].
+ destruct (X.cand_in_dec c h) as [p1 |p2].
+ destruct (X.cand_eq_dec a c) as [j1 |j2].
  left;assumption.
- destruct (cand_in_dec a h) as [s1 |s2].
+ destruct (X.cand_in_dec a h) as [s1 |s2].
  inversion H1.
  contradiction s2.
  right.
@@ -1625,24 +1750,24 @@ Proof.
  assert (Hypo: is_first_hopeful c h (a::l) = is_first_hopeful c h l).
  induction l.
  unfold is_first_hopeful in H1.
- destruct (cand_in_dec) as [CandInDec1 | CandInDec2].
- destruct (cand_eq_dec a c) as [CandEqDec1 |CandEqDec2].
+ destruct (X.cand_in_dec) as [CandInDec1 | CandInDec2].
+ destruct (X.cand_eq_dec a c) as [CandEqDec1 |CandEqDec2].
  rewrite  CandEqDec1 in i2.
  contradiction i2.
- destruct (cand_in_dec a h) as [CandInDec3 | CandInDec4].
+ destruct (X.cand_in_dec a h) as [CandInDec3 | CandInDec4].
  contradiction i2.
  inversion H1.
  inversion H1.
  simpl.
- destruct (cand_in_dec c h) as [p1 |p2].
- destruct (cand_eq_dec a c ) as [p3 |p4].
+ destruct (X.cand_in_dec c h) as [p1 |p2].
+ destruct (X.cand_eq_dec a c ) as [p3 |p4].
  rewrite p3 in i2.
  contradiction i2.
- destruct (cand_in_dec a h) as [p5 |p6].
+ destruct (X.cand_in_dec a h) as [p5 |p6].
  contradiction i2.
- destruct (cand_eq_dec a0 c) as [p7 |p8].
+ destruct (X.cand_eq_dec a0 c) as [p7 |p8].
  reflexivity.
- destruct (cand_in_dec a0 h) as [p9 |p10].
+ destruct (X.cand_in_dec a0 h) as [p9 |p10].
  reflexivity.
  reflexivity.
  reflexivity.
@@ -1650,7 +1775,7 @@ Proof.
  assumption.
 Qed.
 
-Lemma list_is_first_hopeful_In: forall (ba: list ballot) (b:ballot) (h: {hopeful:list cand | NoDup hopeful}) (c:cand),  In (proj1_sig (fst b)) (map (fun (d:ballot) => (proj1_sig (fst d))) (list_is_first_hopeful c (proj1_sig h) ba)) -> In c (proj1_sig (fst b)). 
+Lemma list_is_first_hopeful_In: forall (ba: list ballot) (b:ballot) (h: {hopeful:list X.cand | NoDup hopeful}) (c:X.cand),  In (proj1_sig (fst b)) (map (fun (d:ballot) => (proj1_sig (fst d))) (list_is_first_hopeful c (proj1_sig h) ba)) -> In c (proj1_sig (fst b)). 
 Proof.
  intros ba b h c H1.
  unfold list_is_first_hopeful in H1.
@@ -1673,7 +1798,7 @@ Proof.
 Qed.
 
 (*all the ballots which have already been filtered have no duplicate*)
-Lemma ballot_nodup: forall (ba: list ballot) (t : list (cand ->Q)) (p: cand -> list (list ballot)) bl (e: {elected: list cand | length elected <= st}) (h: {hopeful : list cand | NoDup hopeful}) s,s= state (ba, t, p, bl, e, h) -> forall b: ballot, NoDup (proj1_sig (fst b)).
+Lemma ballot_nodup: forall (ba: list ballot) (t : list (X.cand ->Q)) (p: X.cand -> list (list ballot)) bl (e: {elected: list X.cand | length elected <= X.st}) (h: {hopeful : list X.cand | NoDup hopeful}) s,s= state (ba, t, p, bl, e, h) -> forall b: ballot, NoDup (proj1_sig (fst b)).
 Proof.
  intros ba t p bl e h  s H1 b.
  destruct b as [[b11 [b121 b122]] b2].
@@ -1683,7 +1808,7 @@ Qed.
 
 
 (*if c is not the first continuing candidate in a ballot then c does not receives it*)
-Lemma weakened_list_is_first_notin: forall (t: list (cand -> Q)) (e: {elected:list cand| length elected <= st}) (p: cand -> list (list ballot)) (bl: (list cand) * (list cand)) c (h: {hopeful: list cand | NoDup hopeful}) (n:Q) ba (d:ballot) (d0:cand) l1 l2, proj1_sig (fst d)= l1++[c]++l2 -> In d0 l1 -> In d0 (proj1_sig h) -> ~ In (proj1_sig (fst d)) (map (fun (d' :ballot) => (proj1_sig (fst d'))) (list_is_first_hopeful c (proj1_sig h) ba)).
+Lemma weakened_list_is_first_notin: forall (t: list (X.cand -> Q)) (e: {elected:list X.cand| length elected <= X.st}) (p: X.cand -> list (list ballot)) (bl: (list X.cand) * (list X.cand)) c (h: {hopeful: list X.cand | NoDup hopeful}) (n:Q) ba (d:ballot) (d0:X.cand) l1 l2, proj1_sig (fst d)= l1++[c]++l2 -> In d0 l1 -> In d0 (proj1_sig h) -> ~ In (proj1_sig (fst d)) (map (fun (d' :ballot) => (proj1_sig (fst d'))) (list_is_first_hopeful c (proj1_sig h) ba)).
 Proof.
  intros t e p bl c h n ba d d0 l1 l2 H1 H2 H3.
  induction ba.
@@ -1691,7 +1816,7 @@ Proof.
  intro.
  auto.
  intro H4.
- specialize (list_eq_dec (cand_eq_dec) (proj1_sig (fst (d))) (proj1_sig (fst a))).
+ specialize (list_eq_dec (X.cand_eq_dec) (proj1_sig (fst (d))) (proj1_sig (fst a))).
  intro H'.       
  simpl in H4.
  destruct H' as [h' |h''].
@@ -1717,7 +1842,7 @@ Proof.
 Qed.
 
 (*c gets exactly those ballots which have him as their first continuing candidate*)
-Lemma listballot_fcc: forall ba (t: list (cand -> Q)) (p: cand -> list (list ballot)) (bl: (list cand) * (list cand)) (e: {elected: list cand | length elected <= st}) (h: {hopeful: list cand | NoDup hopeful}) (n:Q), (forall c, In c (proj1_sig h) -> forall d: ballot, In (proj1_sig (fst d)) (map (fun (d':ballot) => (proj1_sig (fst d'))) (list_is_first_hopeful c (proj1_sig h) ba)) <-> fcc ba (proj1_sig h) c d).
+Lemma listballot_fcc: forall ba (t: list (X.cand -> Q)) (p: X.cand -> list (list ballot)) (bl: (list X.cand) * (list X.cand)) (e: {elected: list X.cand | length elected <= X.st}) (h: {hopeful: list X.cand | NoDup hopeful}) (n:Q), (forall c, In c (proj1_sig h) -> forall d: ballot, In (proj1_sig (fst d)) (map (fun (d':ballot) => (proj1_sig (fst d'))) (list_is_first_hopeful c (proj1_sig h) ba)) <-> fcc ba (proj1_sig h) c d).
 Proof.
  intros ba t p bl e h n.
  intros c H3.
@@ -1756,7 +1881,7 @@ Proof.
  destruct IHl as [i | j].
  right.
  exists a.
- exists [].
+ exists ([]: list A).
  rewrite <- i.
  auto.
  destruct j as [b [l' H1]].
@@ -1787,22 +1912,22 @@ Definition eqe {A: Type} (x:A) (l: list A) (nl: list A) : Prop :=
   (~ In x l1) /\ 
   (~ In x l2).
 
-Fixpoint remc (c: cand) (l: list cand) :=
+Fixpoint remc (c: X.cand) (l: list X.cand) :=
  match l with 
     nil => nil
-   | cons l0 ls => if (cand_eq_dec c l0) then ls else cons l0 (remc c ls)
+   | cons l0 ls => if (X.cand_eq_dec c l0) then ls else cons l0 (remc c ls)
  end.
 
-Lemma remc_ok : forall c:cand, forall l:list cand, NoDup l -> In c l -> eqe c (remc c l) l.
+Lemma remc_ok : forall c:X.cand, forall l:list X.cand, NoDup l -> In c l -> eqe c (remc c l) l.
 Proof.
  intros c l H1 H2.  
  induction l.
  inversion H2.
- assert (H3: {a =c} + {a <> c}) by apply (cand_eq_dec a c).
+ assert (H3: {a =c} + {a <> c}) by apply (X.cand_eq_dec a c).
  destruct H3 as [H4 | H4].
  replace (remc c (a::l)) with l. 
  unfold eqe.
- exists ([]:list cand).
+ exists ([]:list X.cand).
  exists l.
  split.
  auto.
@@ -1818,7 +1943,7 @@ Proof.
  intuition.
  rewrite H4.
  unfold remc.
- destruct (cand_eq_dec c c).
+ destruct (X.cand_eq_dec c c).
  reflexivity.
  contradiction n.
  auto.
@@ -1853,28 +1978,28 @@ Proof.
  destruct H14 as [H15 H16].
  assumption.
  unfold remc.
- destruct (cand_eq_dec c a).
+ destruct (X.cand_eq_dec c a).
  contradict H4.
  symmetry.
  assumption.
  trivial.
 Qed.
 
-Lemma remc_contained_in_list: forall (l: list cand) c a, NoDup l -> In a (remc c l) -> In a l.
+Lemma remc_contained_in_list: forall (l: list X.cand) c a, NoDup l -> In a (remc c l) -> In a l.
 Proof.
  intros l c a H H1.
  induction l.
  simpl in H1.
  inversion H1.
- destruct (cand_eq_dec c a0) as [p |q].
+ destruct (X.cand_eq_dec c a0) as [p |q].
  rewrite p in H1.
  simpl in H1.
- destruct (cand_eq_dec a0 a0) as [p1 | p2].
+ destruct (X.cand_eq_dec a0 a0) as [p1 | p2].
  right;assumption.
  contradiction p2;auto.
  assert (Hypo: (remc c (a0::l))= (a0::remc c l)).
  simpl.
- destruct (cand_eq_dec c a0) as [i | j].
+ destruct (X.cand_eq_dec c a0) as [i | j].
  contradiction q.
  reflexivity.
  rewrite Hypo in H1.
@@ -1887,15 +2012,15 @@ Proof.
  assumption.
 Qed.
 
-Lemma remc_nodup : forall (l : list cand) c, NoDup l -> In c l -> NoDup (remc c l).
+Lemma remc_nodup : forall (l : list X.cand) c, NoDup l -> In c l -> NoDup (remc c l).
 Proof.
  intros l c H1 H2.
  induction l.
  inversion H2.
- destruct (cand_eq_dec c a) as [i |j].
+ destruct (X.cand_eq_dec c a) as [i |j].
  rewrite i.
  simpl.
- destruct (cand_eq_dec a a) as [ p |q].
+ destruct (X.cand_eq_dec a a) as [ p |q].
  inversion H1.
  assumption.
  contradiction q;auto.
@@ -1916,7 +2041,7 @@ Proof.
  auto.
  assumption.
  simpl.
- destruct (cand_eq_dec c a).
+ destruct (X.cand_eq_dec c a).
  contradiction j;auto.
  reflexivity.
 Qed.
@@ -2002,8 +2127,8 @@ Lemma extend_ordered_type: forall A:Type, forall f: A -> Q, forall x: list A, or
 Proof.
  intros A f x H1 a.
  induction x.
- exists [].
- exists [].
+ exists ([]: list A).
+ exists ([]: list A).
  split.
  auto.
  apply ord_sing.
@@ -2012,13 +2137,13 @@ Proof.
  auto.
  destruct s as [z H2].
  destruct H2 as [H5 H6].
- assert (Hyp: {(f a0 < f a)%Q} + {(f a <= f a0)%Q}) by apply (Qlt_le_dec (f a0)(f a)).
+ assert (Hyp: sumbool ((f a0 < f a)%Q) ((f a <= f a0)%Q)) by apply (Qlt_le_dec (f a0)(f a)).
  destruct Hyp as [Hyp1 | Hyp2].
  destruct x0.
  simpl in H6.
  simpl in H5.
  rewrite H5 in H1.
- exists [].
+ exists ([]: list A).
  exists (a0::z).
  repeat split.
  rewrite H5;auto.
@@ -2055,7 +2180,7 @@ Proof.
 Qed.
 
 (*if a list has no duplication, then adding elements which were not in it does not creat duplication.*)
-Lemma NoDup_middle: forall (a:cand) m1 m2, ~ In a (m1++m2) -> NoDup (m1++m2) -> NoDup (m1++[a]++m2).
+Lemma NoDup_middle: forall (a:X.cand) m1 m2, ~ In a (m1++m2) -> NoDup (m1++m2) -> NoDup (m1++[a]++m2).
 Proof.
  intros a m1 m2 H1 H2.
  induction m1.
@@ -2088,11 +2213,11 @@ Proof.
 Qed.
 
 (*if there are vacancies, we can construct a list electable candidates who have reached the quota. Besides this list is orderedw.r.t. tally, and it contains all of such electable candidates.*)
-Lemma constructing_electable_first: forall (e: {elected:list cand | length elected <= st}) (f: cand -> Q) (h: {hopeful: list cand | NoDup hopeful}) (qu:Q), st > length (proj1_sig e) -> NoDup (proj1_sig h) -> (existsT m, (forall x:cand, In x m -> In x (proj1_sig h) /\ (qu <= f x)%Q) /\ (ordered f m) /\ NoDup m /\ (length m <= st - (length (proj1_sig e))) /\ (forall x, In x (proj1_sig h) /\ (qu <= f x)%Q /\ length m < st - length (proj1_sig e) -> In x m)). 
+Lemma constructing_electable_first: forall (e: {elected:list X.cand | length elected <= X.st}) (f: X.cand -> Q) (h: {hopeful: list X.cand | NoDup hopeful}) (qu:Q), X.st > length (proj1_sig e) -> NoDup (proj1_sig h) -> (existsT m, (forall x: X.cand, In x m -> In x (proj1_sig h) /\ (qu <= f x)%Q) /\ (ordered f m) /\ NoDup m /\ (length m <= X.st - (length (proj1_sig e))) /\ (forall x, In x (proj1_sig h) /\ (qu <= f x)%Q /\ length m < X.st - length (proj1_sig e) -> In x m)). 
 Proof.
  intros e f h qu H H1. 
  induction (proj1_sig h).
- exists ([]:list cand).
+ exists ([]:list X.cand).
  split.
  intros x H2.
  inversion H2. 
@@ -2108,12 +2233,12 @@ Proof.
  inversion H2_1.
  specialize (NoDup_remove_1 [] l a H1);intro H2.
  simpl in H2.
- assert (Hyp1: {(f a < qu)%Q} + {(qu <= f a)%Q}) by apply (Qlt_le_dec (f a) qu).
+ assert (Hyp1: sumbool ((f a < qu)%Q) ((qu <= f a)%Q)) by apply (Qlt_le_dec (f a) qu).
  destruct Hyp1 as [Hyp1_1 | Hyp1_2].
  specialize (IHl H2).
  destruct IHl as [m H3].
  destruct H3 as [H3_1[ H3_2 H3_3 ]].
- destruct (cand_in_dec a m) as [i | j].
+ destruct (X.cand_in_dec a m) as [i | j].
  specialize (H3_1 a i).
  destruct H3_1 as [H3_11 H3_12].
  specialize (Qlt_not_le (f a) qu Hyp1_1);intros H3_4.
@@ -2122,7 +2247,7 @@ Proof.
  split.
  intros x H4.
  split.
- destruct (cand_eq_dec a x) as [p | q].
+ destruct (X.cand_eq_dec a x) as [p | q].
  rewrite p in j.
  contradiction j.
  right.
@@ -2147,15 +2272,15 @@ Proof.
  specialize (IHl H2).
  destruct IHl as [m H3].
  destruct H3 as [H3_1 [H3_2 H3_3]].
- destruct (cand_in_dec a m) as [i | j].
+ destruct (X.cand_in_dec a m) as [i | j].
  specialize (H3_1 a i).
  destruct H3_1 as [H3_11 H3_12].
  specialize (NoDup_remove_2 [] l a H1);intros H5.
  contradiction H5.
  destruct H3_3 as [H3_31 [H3_32 H3_4]].
- specialize (le_lt_eq_dec (length m) (st - length (proj1_sig e)) H3_32);intro H3_33.
+ specialize (le_lt_eq_dec (length m) (X.st - length (proj1_sig e)) H3_32);intro H3_33.
  destruct H3_33 as [H3_331 | H3_332].
- specialize (extend_ordered_type cand (f: cand -> Q) m H3_2 a);intro H4.
+ specialize (extend_ordered_type X.cand (f: X.cand -> Q) m H3_2 a);intro H4.
  destruct H4 as [m1 [m2 H4_1]].
  destruct H4_1 as [H4_5 H4_6].
  exists (m1++[a] ++m2).
@@ -2180,7 +2305,7 @@ Proof.
  specialize (H3_1 x).
  intuition.
  specialize (H3_1 x).
- destruct (cand_eq_dec a x) as [p |q].
+ destruct (X.cand_eq_dec a x) as [p |q].
  rewrite p in Hyp1_2.
  assumption.
  assert (Hyp4: In x m).
@@ -2208,7 +2333,7 @@ Proof.
  rewrite app_length in H3_331.
  omega.
  intros x H5.
- destruct (cand_eq_dec a x) as [p | q].
+ destruct (X.cand_eq_dec a x) as [p | q].
  rewrite p.
  intuition.
  destruct H5 as [H5_1 [H5_2 H5_3]].
@@ -2248,29 +2373,48 @@ Proof.
  omega.
 Qed.
 
-Definition update_pile (p: cand -> list (list ballot)) (t: list (cand -> Q)) l (q:Q) (c:cand): list (list ballot):=   
- if cand_in_dec c l 
+Definition update_pile (p: X.cand -> list (list ballot)) (t: list (X.cand -> Q)) l (q:Q) (c:X.cand): list (list ballot):=   
+ if X.cand_in_dec c l 
     then  
         map (map (fun (b : ballot) => 
         (fst b, (Qred (snd b * (Qred ((hd nty t)(c)- q)/(hd nty t)(c))))%Q))) (p c)
     else ( p c).
 
+Definition Update_transVal (c: X.cand) (p: X.cand -> list (list ballot)) (t: X.cand -> Q) :=
+ let Sum_parcel := sum (last (p c) []) in
+  let r :=  (Qred ((Qred ((t c) - X.quota)) / Sum_parcel)) in
+    match (Qlt_le_dec 0 Sum_parcel) with
+       left _ => match (Qlt_le_dec r 1) with
+                    left _ => r
+                   |right _ => (1)%Q
+                 end
+       |right _ => (1)%Q
+    end.
+
+
+Definition update_pile_ManualACT (p: X.cand -> list (list ballot)) (t: X.cand -> Q) (l: list X.cand) (q:Q) (c: X.cand):=
+ if X.cand_in_dec c l
+    then
+       map (map (fun (b : ballot) =>
+         (fst b, (Qred (snd b * (Update_transVal c p t)))%Q))) [(last (p c) [])] 
+    else (p c).
+
 (*removes every element of the list k which exist in the list l*)
-Fixpoint Removel (k :list cand) (l :list cand) :list cand:=
+Fixpoint Removel (k :list X.cand) (l :list X.cand) :list X.cand:=
  match l with
         [] => []
-        |l0::ls => if (cand_in_dec l0 k) then (Removel k ls) else (l0::(Removel k ls))
+        |l0::ls => if (X.cand_in_dec l0 k) then (Removel k ls) else (l0::(Removel k ls))
  end.
 
 (*if a is not in l, then it is already removed from l*)
-Lemma Removel_extra_element: forall a, forall k1 k2 l:list cand, ~ In a l -> Removel (k1++[a]++k2) l = Removel (k1++k2) l. 
+Lemma Removel_extra_element: forall a, forall k1 k2 l:list X.cand, ~ In a l -> Removel (k1++[a]++k2) l = Removel (k1++k2) l. 
 Proof.
  intros a k1 k2 l H1.
  induction l.
  simpl.
  auto.
  simpl.
- destruct (cand_in_dec a0 (k1++k2)) as [ i | j].
+ destruct (X.cand_in_dec a0 (k1++k2)) as [ i | j].
  assert (Hyp: ~ In a l).
  intro.
  apply H1.
@@ -2283,10 +2427,10 @@ Proof.
  destruct Hyp2 as [Hyp21 |Hyp22].
  intuition.
  intuition.
- destruct (cand_in_dec a0 (k1++a::k2)).
+ destruct (X.cand_in_dec a0 (k1++a::k2)).
  auto.
  contradiction n.
- destruct (cand_in_dec a0 (k1++a::k2)).
+ destruct (X.cand_in_dec a0 (k1++a::k2)).
  assert (Hyp3: ~ In a0 (k1++a::k2)).
  intro.
  specialize (in_app_or k1 (a::k2) a0 H);intro H3.
@@ -2311,7 +2455,7 @@ Proof.
 Qed.
 
 (*to remove particular elements from a list, one can split this removal into two parts*)
-Lemma Removel_segmentation: forall k l1 l2: list cand, Removel k (l1++l2) = (Removel k l1) ++ (Removel k l2).
+Lemma Removel_segmentation: forall k l1 l2: list X.cand, Removel k (l1++l2) = (Removel k l1) ++ (Removel k l2).
 Proof.
  intros k l1 l2.
  induction l1.
@@ -2319,7 +2463,7 @@ Proof.
  auto.
  rewrite<- (app_comm_cons l1 l2 a).
  simpl.
- destruct (cand_in_dec a k) as [ i |j].
+ destruct (X.cand_in_dec a k) as [ i |j].
  assumption.
  rewrite <- (app_comm_cons ).
  rewrite IHl1.
@@ -2327,7 +2471,7 @@ Proof.
 Qed.
 
 (*if the orginal list is duplicate-free, so is any remainder list after removal of some elements*)
-Lemma Removel_nodup: forall (k l :list cand), NoDup l -> NoDup (Removel k l).
+Lemma Removel_nodup: forall (k l :list X.cand), NoDup l -> NoDup (Removel k l).
 Proof.
  intros k l H1.
  induction k.
@@ -2336,7 +2480,7 @@ Proof.
  simpl.
  auto.
  simpl.
- destruct (cand_in_dec a []).
+ destruct (X.cand_in_dec a []).
  inversion i.
  rewrite IHl.
  auto.
@@ -2344,7 +2488,7 @@ Proof.
  assumption.
  rewrite Hyp.
  assumption.
- destruct (cand_in_dec a l) as [i | j].
+ destruct (X.cand_in_dec a l) as [i | j].
  specialize (in_split a l i);intro H2.
  destruct H2 as [l1 [l2 H3]].
  rewrite H3.
@@ -2367,7 +2511,7 @@ Proof.
  rewrite (Removel_segmentation (a::k) [a] l2).  
  assert (Hyp6: Removel (a::k) [a] = []).
  simpl.
- destruct (cand_in_dec a (a::k)).
+ destruct (X.cand_in_dec a (a::k)).
  auto.
  contradiction n.
  left;auto.
@@ -2384,7 +2528,7 @@ Proof.
  rewrite (Removel_segmentation k [a] l2) in IHk.
  assert (Hypo7: Removel k [a] = [] \/ Removel k [a] = [a]).
  simpl.
- destruct (cand_in_dec a k) as [ p | q].
+ destruct (X.cand_in_dec a k) as [ p | q].
  left;auto.
  right;auto.
  destruct Hypo7 as [Hypo71 | Hypo72].
@@ -2426,13 +2570,13 @@ Proof.
  simpl.
  auto.
  simpl.
- destruct (cand_in_dec a []) as [ i | j].
+ destruct (X.cand_in_dec a []) as [ i | j].
  inversion i.
  rewrite IHk.
  auto.
 Qed.
 
-Lemma nodup_permutation: forall (k l :list cand), (forall x, In x k -> In x l) -> NoDup k -> NoDup l -> Leqe (Removel k l) k l.
+Lemma nodup_permutation: forall (k l :list X.cand), (forall x, In x k -> In x l) -> NoDup k -> NoDup l -> Leqe (Removel k l) k l.
 Proof.
  intros k l H1 H2 H3.
  induction k.
@@ -2444,7 +2588,7 @@ Proof.
  intros x H.
  apply H1.
  right;auto.
- destruct (cand_in_dec a l) as [ i | j].
+ destruct (X.cand_in_dec a l) as [ i | j].
  specialize (in_split a l i);intro H4.
  destruct H4 as [l1 [l2 H5]].
  assert (Hyp1: Removel (a::k) l = (Removel k l1) ++ Removel k l2).
@@ -2465,7 +2609,7 @@ Proof.
  rewrite Hyp21.
  assert (Hyp3: Removel (a::k) (a::l2) = Removel k l2).
  simpl.
- destruct (cand_in_dec a (a::k)) as [p |q].
+ destruct (X.cand_in_dec a (a::k)) as [p |q].
  apply (Removel_extra_element a [] k l2).
  intuition.
  contradiction q.
@@ -2483,7 +2627,7 @@ Proof.
  rewrite (Removel_segmentation k [a] l2) in IHk.
  assert (Hyp10: Removel k [a] = [a]).
  simpl.
- destruct (cand_in_dec a k) as [p | q]. 
+ destruct (X.cand_in_dec a k) as [p | q]. 
  contradiction H4.
  auto.
  rewrite Hyp10 in IHk.
@@ -2493,7 +2637,7 @@ Proof.
  rewrite (app_assoc k (Removel k l1) ([a]++(Removel k l2))).
  auto.
  rewrite Hyp7 in IHk.
- specialize (Permutation_reorder cand (l1++[a]++l2) (k++Removel k l1) (Removel k l2) a IHk);intro H7.
+ specialize (Permutation_reorder X.cand (l1++[a]++l2) (k++Removel k l1) (Removel k l2) a IHk);intro H7.
  rewrite H5.
  simpl.
  assert (Hyp11: (a::k ++ Removel k l1)++Removel k l2 = a::k++(Removel k l1)++Removel k l2).
@@ -2508,7 +2652,7 @@ Proof.
  contradiction H1.
 Qed.
 
-Lemma Permutation_App: forall l l1 l2:list cand, Permutation l (l1++l2) -> Permutation l (l2++l1).
+Lemma Permutation_App: forall l l1 l2:list X.cand, Permutation l (l1++l2) -> Permutation l (l2++l1).
 Proof.
  intros l l1 l2 H1.
  induction l1.
@@ -2519,16 +2663,18 @@ Proof.
  apply (Permutation_app_comm).
 Qed.  
 
+Check proj1_sig. 
 Lemma Filter_segmentation: forall l a, Filter (a::l) = Filter l \/ (Filter (a::l) = a::Filter l).
 Proof.
  intros l a.
  simpl.
- destruct (nodup_elem (proj1_sig (fst a)) && (non_empty (proj1_sig (fst a)))).
+ destruct (X.ValidBallot (` (fst a))).
  right.
  reflexivity.
  left.
  auto.
 Qed.
+
 
 Lemma Permutation_reorder2: forall (A:Type) l k1 k2 (a:A), Permutation l ((a::k1)++k2) -> Permutation l (k1++a::k2).
 Proof.
@@ -2543,7 +2689,7 @@ Proof.
  apply Permutation_middle.
 Qed.
 
-Lemma Filter_Permutation_ballot: forall l:list ballot, exists l1, Permutation (l1++ (Filter l)) l.
+Lemma Filter_Permutation_ballot: forall l:list ballot, exists (l1: list ballot), Permutation (l1++ (Filter l)) l.
 Proof.
  intro l.
  induction l.
@@ -2570,6 +2716,12 @@ Proof.
  assumption.
 Qed.
 
+(*End Base_Proofs.*)
+
+(*End Generic_Machine.*)
+(*
+Section ANUnion.
+
 (* above this line may be added to the base of the framework *)
 (* ********************************************************************************************** *)
 (* The following excluded lemmas may be proved later *********************************
@@ -2583,7 +2735,8 @@ Lemma list_is_first_hopeful_Eq_List_IsFirst_Hopeful :
  forall c h ba, forall b, In b (list_is_first_hopeful c h ba) -> In b (List_IsFirst_Hopeful c h [] ba).
 *) 
 
-Definition Union_InitStep (prem :FT_Judgement) (conc :FT_Judgement): Prop :=
+
+Definition Union_InitStep (prem :Machine_States) (conc :Machine_States): Prop :=
  exists ba ba',  
   prem = initial ba /\
   ba' = (Filter ba) /\
@@ -2613,7 +2766,7 @@ Lemma UnionInitStep_SanityCheck_Red: SanityCheck_Initial_Red Union_InitStep.
  intuition.
 Qed.
 
-Definition Union_count (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_count (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists ba t nt p np bl h e,                (** count the ballots requiring attention **)
   prem = state (ba, t, p, bl, e, h) /\     (* if we are in an intermediate state of the count *) 
   [] <> ba /\                                        (* and there are ballots requiring attention *)
@@ -2627,7 +2780,7 @@ Definition Union_count (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
       else ((nt c) = (hd nty t) c) /\ (np c) = (p c)) /\                 
   conc = state ([], nt :: t, np, bl, e, h).     
 
-Hypothesis Bl_hopeful_NoIntersect : forall j: FT_Judgement, forall ba t p bl e h, j = state (ba,t,p,bl,e,h) ->
+Hypothesis Bl_hopeful_NoIntersect : forall j: Machine_States, forall ba t p bl e h, j = state (ba,t,p,bl,e,h) ->
  (forall c, In c (snd bl) -> ~ In c (proj1_sig h)) * (forall c, In c (fst bl) -> ~ In c (snd bl)).
 
 Lemma UnionCount_SanityCheck_App : SanityCheck_Count_App Union_count.
@@ -2680,7 +2833,7 @@ Lemma UnionCount_SanityCheck_Red: SanityCheck_Count_Red Union_count.
  contradict NoIntersect1.
  assumption.
  intuition.
- exists ba; exists []; exists t. exists nt; exists p0. 
+ exists ba; exists ([]: list ballot); exists t. exists nt; exists p0. 
  exists np; exists bl; exists e; exists h. split. intuition. 
  split; intuition.
  specialize (list_nonempty ballot ba). intro Hyp.
@@ -2688,17 +2841,18 @@ Lemma UnionCount_SanityCheck_Red: SanityCheck_Count_Red Union_count.
  destruct H as [b [l Hyp1]].
  rewrite Hyp1.
  simpl. 
- omega.
- assert (hyp2: forall c, In c (snd bl) -> length (p0 c) = length (np c)).
+ omega. 
+ assert (hyp2: forall c, In c (snd bl) -> length (concat (p0 c)) = length (concat (np c))).
  intros.
  specialize (old_new_pile_equal_bl c0 H). 
  rewrite old_new_pile_equal_bl.
  reflexivity.
- specialize (map_ext_in (fun c0 => length (p0 c0)) (fun c0 => length (np c0)) (snd bl) hyp2). intro.
+ specialize (map_ext_in (fun c0 => length (concat (p0 c0))) (fun c0 => length (concat (np c0))) (snd bl) hyp2).
+ intro.
  rewrite H. auto.
 Qed.
 
-Definition Union_hwin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_hwin (prem: Machine_States) (conc: Machine_States) : Prop :=
   exists w ba t p bl e h,                            
    prem = state (ba, t, p, bl, e, h) /\           
    length (proj1_sig e) + length (proj1_sig h) <= st /\ 
@@ -2726,7 +2880,7 @@ Proof.
  intuition.
 Qed.
 
-Definition Union_ewin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_ewin (prem: Machine_States) (conc: Machine_States) : Prop :=
   exists w ba t p bl e h,                    (** elected win **)
    prem = state (ba, t, p, bl, e, h) /\   (* if at any time *)
    length (proj1_sig e) = st /\             (* we have as many elected candidates as seats *) 
@@ -2755,7 +2909,7 @@ Proof.
  assumption.
 Qed.
 
-Definition Union_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_transfer (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists nba t p np bl nbl h e,         (** transfer votes **) 
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
@@ -2781,7 +2935,8 @@ Proof.
                                                         if (cand_eq_dec d c) then [] else p d, 
                                                         (bls, []), e, h)).
  exists (flat_map (fun x => x) (p c)). exists t. exists p. 
- exists (fun d => if (cand_eq_dec d c) then [] else p d). exists (c::bls, []). exists (bls,[]). exists h.
+ exists (fun d => if (cand_eq_dec d c) then [] else p d). exists (c::bls, ([]: list cand)). 
+ exists (bls, ([]: list cand)). exists h.
  exists e. 
  intuition.
  rewrite H3 in H. assumption.
@@ -2811,7 +2966,7 @@ Lemma UnionTransfer_SanityCheck_Red : SanityCheck_Transfer_Red Union_transfer.
  omega.
 Qed.
 
-Definition Union_elim (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_elim (prem: Machine_States) (conc: Machine_States) : Prop :=
   exists nba t p np e h nh bl2,                    
    prem = state ([], t, p, ([], bl2), e, h) /\         
    length (proj1_sig e) + length (proj1_sig h) > st /\ 
@@ -2822,7 +2977,7 @@ Definition Union_elim (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
      nba = flat_map (fun x => x) (p c) /\                                   
      np(c)=[] /\                                       
      (forall d, d <> c -> np (d) = p (d)) /\                       
-   conc = state (nba, t, np, ([], [c]), e, nh)). 
+   conc = state (nba, t, np, ([], []), e, nh)). 
 
 Lemma UnionElim_SanityCheck_App : SanityCheck_Elim_App Union_elim.
 Proof.
@@ -2839,7 +2994,7 @@ Proof.
  destruct s as [min [s1 s2]].
  specialize (remc_nodup (proj1_sig h) min (proj2_sig h) s1);intro H'1.
  exists (state (flat_map (fun x => x) (p min), t, fun d => if (cand_eq_dec d min) then [] else (p d),
-                                                ([], [min]), e, exist _ (remc min (proj1_sig h)) H'1)). 
+                                                ([], []), e, exist _ (remc min (proj1_sig h)) H'1)). 
  exists (flat_map (fun x => x) (p min)).
  exists t. exists p. exists (fun d => if (cand_eq_dec d min) then [] else (p d)). exists e. exists h. 
  exists (exist _ (remc min (proj1_sig h)) H'1).
@@ -2877,11 +3032,11 @@ Lemma UnionElim_SanityCheck_Red : SanityCheck_Elim_Red Union_elim.
  simpl.
  rewrite (app_length).
  exists bl2. 
- exists [weakest].
+ exists ([]: list cand).
  intuition.
 Qed.
 
-Definition Union_elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition Union_elect (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists t p np (bl nbl: (list cand) * (list cand)) (nh h: {hopeful: list cand | NoDup hopeful})(e ne: {l : list cand | length l <= st }),
     prem = state ([], t, p, bl, e, h) /\ 
     exists l,                                      
@@ -2918,7 +3073,7 @@ Proof.
  exist _ ((proj1_sig e) ++ listElected) Assum, exist _ (Removel listElected (proj1_sig h)) NoDupH)).
  exists t. exists p. exists (fun x => update_pile p t listElected quota x).
  exists bl. exists ((fst bl) ++ listElected, snd bl). exists (exist _ (Removel listElected (proj1_sig h)) NoDupH).
- exists h. exists e. exists (exist _ ((proj1_sig e) ++ listElected) Assum). 
+ exists h. exists e. exists (exist (fun v => length v <= st) ((proj1_sig e) ++ listElected) Assum). 
  split. auto.
  exists listElected.
  intuition.
@@ -2989,28 +3144,7 @@ Qed.
 Definition Union_quota := 
  (((inject_Z (Z.of_nat (length (Filter bs)))) / (1 + inject_Z (Z.of_nat st)) + 1)%Q). 
 
-(*
-Definition Union_transferElect (prem: FT_Judgement) (conc: FT_Judgement) :=
- exists (t: list (cand -> Q)) (p: cand -> (list (list ballot))) (bl1: list cand) 
- (bl2: list cand)  (bl: (list cand) * (list cand)) nbl c e h p np nba, 
- (prem = state ([], t, p, (bl1, c:: bl2), e, h)) /\
- (length (proj1_sig e) < st) /\ (bl1 <> []) /\ (p c = []) /\ 
- (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\
- (
-     (
-      (length (fst nbl) < length (fst bl)) /\ 
-       (Sum_nat (map (fun c => length (p c)) (snd bl)) = Sum_nat (map (fun c => length (np c)) (snd nbl)))
-     )
-    \/ (
-        (length (fst nbl) = length (fst bl)) /\ 
-          (Sum_nat (map (fun c => length (np c)) (snd nbl)) < Sum_nat (map (fun c => length (p c)) (snd bl)))
-       )
-    )
- /\
-   (conc = state (nba, t, np, nbl, e, h)).    
-*)          
-
-Definition VicTas_TransferElected2 (prem: FT_Judgement) (conc: FT_Judgement) :=
+Definition VicTas_TransferElected2 (prem: Machine_States) (conc: Machine_States) :=
  exists nba t p np bl nbl h e,         
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
@@ -3018,8 +3152,8 @@ Definition VicTas_TransferElected2 (prem: FT_Judgement) (conc: FT_Judgement) :=
     exists l c c' l',                          
      (bl = (c :: l, c'::l') /\                   
      nbl = (l, l') /\                          
-     nba = last (p c) [] /\
-     p(c') = [] /\           
+     nba = concat (p c) /\
+     concat (p c') = [] /\           
      np(c) = [] /\                                 
      (forall d, d <> c -> np(d) = p(d))) /\    
    conc = state (nba, t, np, nbl, e, h). 
@@ -3033,9 +3167,9 @@ Proof.
  specialize (list_nonempty_type cand bl1 H2). intro Nonempty_bl.
  destruct Nonempty_bl as [Headbl1 [Tailbl1 bl1None]].
  
- exists (state (last (p Headbl1) [], t, fun x => if (cand_eq_dec x Headbl1) then [] else p x, 
+ exists (state (concat (p Headbl1), t, fun x => if (cand_eq_dec x Headbl1) then [] else p x, 
                 (Tailbl1, bl2), e, h)).  
- exists (last (p Headbl1) []).
+ exists (concat (p Headbl1)).
  exists t. exists p. exists (fun x => if (cand_eq_dec x Headbl1) then [] else (p x)).
  exists (Headbl1:: Tailbl1, c:: bl2). exists (Tailbl1,bl2). exists h. exists e.
  rewrite bl1None in H.
@@ -3082,18 +3216,18 @@ Proof.
  split.  auto.
  split. left. rewrite HH1. rewrite HH21. 
  simpl. rewrite HH23.
- assert (Leneq: forall d, In d Tbl2 -> length (p d) = length (np d)).
+ assert (Leneq: forall d, In d Tbl2 -> length (concat (p d)) = length (concat (np d))).
  intros d he.
  specialize (Hypo d he). rewrite Hypo. auto.
- specialize (map_ext_in (fun c => length (p c)) (fun d => length (np d)) Tbl2 Leneq). intro map_equal.
+ specialize (map_ext_in (fun c => length (concat (p c))) (fun d => length (concat (np d))) Tbl2 Leneq). 
+ intro map_equal.
  rewrite map_equal.
  simpl.
  omega.
  auto.
 Qed.
 
-
-Definition VicTas_TransferElim (prem: FT_Judgement) (conc: FT_Judgement) :=
+Definition VicTas_TransferElim (prem: Machine_States) (conc: Machine_States) :=
  exists nba t p np bl nbl h e,         
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
@@ -3101,14 +3235,14 @@ Definition VicTas_TransferElim (prem: FT_Judgement) (conc: FT_Judgement) :=
     exists l c c' l',                          
      (bl = (c :: l, c'::l') /\                   
      nbl = (c::l, c'::l') /\
-       (let x:= flat_map (fun x => x) (p c') in                          
-     nba = hd [] (rev (Parcel_same_val (length x) x))) /\
-     p(c') <> [] /\    
-     np c' = tl (p c') /\                                        
+      (concat (p c') <> []) /\ 
+      let x:= (groupbysimple _ (sort (concat (p c')))) in
+       (nba = last x []) /\
+       np c' = (removelast x) /\                                        
      (forall d, d <> c' -> np(d) = p(d))) /\    
    conc = state (nba, t, np, nbl, e, h). 
 
-Hypothesis Bl_NoDup : forall j: FT_Judgement, forall ba t p bl e h, 
+Hypothesis Bl_NoDup : forall j: Machine_States, forall ba t p bl e h, 
   j = state (ba,t,p,bl,e,h) -> NoDup (snd bl).
 
 
@@ -3118,10 +3252,11 @@ Proof.
  intros.
  destruct H0 as [H1 [H2 [H3 H4]]].
  unfold VicTas_TransferElim.
- exists (state (hd [] (rev (Parcel_same_val (length (flat_map (fun x => x) (p c))) (flat_map (fun x => x) (p c)))),
- t, fun d => if (cand_eq_dec d c) then tl (p c) else p d, (bl1, c::bl2), e, h)). 
- exists (hd [] (rev (Parcel_same_val (length (flat_map (fun x => x) (p c))) (flat_map (fun x => x) (p c))))). 
- exists t. exists p. exists (fun d => if (cand_eq_dec d c) then tl (p c) else p d). 
+ exists (state (((last (groupbysimple _ (sort (concat (p c)))) []): list ballot),
+ t, fun d => if (cand_eq_dec d c) then (removelast (groupbysimple _ (sort (concat (p c))))) else p d, (bl1, c::bl2), e, h)). 
+ exists (last (groupbysimple _ (sort (concat (p c)))) []). 
+ exists t. exists p. exists (fun d => if (cand_eq_dec d c) 
+   then (removelast ((groupbysimple _ (sort (concat (p c))))))  else p d). 
  exists (bl1,c::bl2). exists (bl1, c::bl2). exists h. exists e. intuition.
  specialize (list_nonempty_type cand bl1 H2). intro Nbl1.
  destruct Nbl1 as [Hbl1 [Tbl1 bl1N]].
@@ -3134,6 +3269,14 @@ Proof.
  contradiction H0. reflexivity.
 Qed.
 
+Lemma concat_app : forall (A:Type) (l1: list (list A)) l2, concat (l1 ++ l2) = concat l1 ++ concat l2.
+Proof.
+  intros.
+  induction l1 as [|x l1 IH]. induction l2. simpl.
+  reflexivity. simpl. auto.
+  simpl. rewrite IH; apply app_assoc.
+Qed.
+ 
 Lemma VicTas_TransferElim_SanityCheck_Red: SanityCheck_Transfer_Red VicTas_TransferElim.
 Proof.
  unfold SanityCheck_Transfer_Red. 
@@ -3163,22 +3306,53 @@ Proof.
  intro cont. rewrite cont in InTbl2. apply Hbl2_notInTail. assumption.
  specialize (K25 d not_eq_d).
  auto.
- assert (Len_piles_eq: forall d, In d Tbl2 -> length (p d) = length (np d)).
+ assert (Len_piles_eq: forall d, In d Tbl2 -> length (concat (p d)) = length (concat (np d))).
  intros d Hy.
  specialize (Piles_eq_Tbl2 d Hy).
  rewrite Piles_eq_Tbl2. auto.
- specialize (map_ext_in (fun c => length (p c)) (fun c => length (np c)) Tbl2 Len_piles_eq). intro nice.
+ specialize (map_ext_in (fun c => length (concat (p c))) (fun c => length (concat (np c))) Tbl2 Len_piles_eq). 
+ intro nice.
  rewrite nice.  
  rewrite K24.
- specialize (list_nonempty_type (list ballot) (p Hbl2) K23). intro notemp.
- destruct notemp as [HeadP [TailP Hn]].
- rewrite Hn.
+ assert (Hypo: (groupbysimple _ (sort (concat (p Hbl2)))) <> []).
+ apply groupbysimple_not_empty.
+ apply sherin. 
+ auto.  
+ assert (Hypo2: groupbysimple _ (sort (concat (p Hbl2))) = 
+(removelast (groupbysimple _ (sort (concat (p Hbl2))))) ++ [last (groupbysimple _ (sort (concat (p Hbl2)))) []]).
+ apply app_removelast_last.
+ assumption.
+ assert (Hypo222: concat (groupbysimple _ (sort (concat (p Hbl2)))) =
+                  concat ((removelast (groupbysimple _ (sort (concat (p Hbl2)))))
+                            ++
+                            [last (groupbysimple _ (sort (concat (p Hbl2)))) []])).
+ apply f_equal. assumption.
+ rewrite concat_app in Hypo222. 
+
+ assert (Hypo22: length (concat (groupbysimple _ (sort (concat (p Hbl2))))) = 
+ (length (concat (removelast (groupbysimple _ (sort (concat (p Hbl2)))))) + 
+  length (concat [last (groupbysimple _ (sort (concat (p Hbl2)))) []]))%nat).
+ rewrite <- app_length. apply f_equal. auto.
+ assert (Hypolen : length
+            (concat (groupbysimple {v : list cand | NoDup v /\ [] <> v} (sort (concat (p Hbl2))))) = 
+                   length (concat (p Hbl2))).
+ rewrite <- concat_rat. auto.
+ rewrite <- Hypolen.
+ rewrite  Hypo22.
  simpl.
- omega.
-auto.
+ assert (Hlen : forall (A : Type) (l : list A),
+            l <> []  -> 0 < length l).  
+ intros. destruct l. contradiction H. auto. simpl. omega.
+ specialize (groupby_notempty _ (sort (concat (p Hbl2)))). intros.
+ pose proof (sortedList_notempty (concat (p Hbl2)) K22).
+ specialize (H H0). 
+ specialize (Hlen _ _ H).
+ rewrite app_nil_r.
+ apply Nat.add_lt_mono_r.
+ apply NPeano.Nat.lt_add_pos_r. trivial.
+ auto.
 Qed.
 
-(*
 Definition UnionSTV := (mkSTV (quota)  
     (Union_InitStep) (UnionInitStep_SanityCheck_App) (UnionInitStep_SanityCheck_Red) 
     (Union_count) (UnionCount_SanityCheck_App) (UnionCount_SanityCheck_Red)
@@ -3191,19 +3365,20 @@ Definition UnionSTV := (mkSTV (quota)
     (Union_ewin) (UnionEwin_SanityCheck_App) (UnionEwin_SanityCheck_Red)).
 
 
-
-Lemma init_stages_R_initial : ~ FT_final (initial (Filter bs)).
+Lemma init_stages_R_initial : ~ State_final (initial (Filter bs)).
 Proof.
  intro.
- unfold FT_final in H.
+ unfold State_final in H.
  destruct H.
  inversion H.
 Qed.
  
 Definition Union_Termination := Termination (initial (Filter bs)) init_stages_R_initial UnionSTV.
-*)
 
-Definition ACT_TransferElected (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+End ANUnion.
+*)
+(*
+Definition ACT_TransferElected (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists nba t p np bl nbl h e,
   prem = state ([], t, p, bl, e, h) /\
   (length (proj1_sig e) < st) /\
@@ -3252,28 +3427,9 @@ Proof.
 Qed.
 
 
-Definition Update_transVal (c: cand) (p: cand -> list (list ballot)) (t: cand -> Q) :=
- let Sum_parcel := sum (last (p c) []) in
-  let r :=  (Qred ((Qred ((t c) - quota)) / Sum_parcel)) in
-    match (Qlt_le_dec 0 Sum_parcel) with
-       left _ => match (Qlt_le_dec r 1) with
-                    left _ => r
-                   |right _ => (1)%Q
-                 end
-       |right _ => (1)%Q
-    end.
-
-
-Definition update_pile_ManualACT (p: cand -> list (list ballot)) (t: cand -> Q) (l: list cand) (q:Q) (c:cand):=
- if cand_in_dec c l
-    then
-       map (map (fun (b : ballot) =>
-         (fst b, (Qred (snd b * (Update_transVal c p t)))%Q))) [(last (p c) [])] 
-    else (p c).
-
 (* transfer value has changed so that only last parcel is to be transferred at a Manual_ACT rate*)
 (* note that only the last parcel is kept after being updated. The rest of the parcel is thrown out! *)
-Definition ACT_Elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition ACT_Elect (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists t p np (bl nbl: (list cand) * (list cand)) nh h (e ne: {l : list cand | length l <= st }),
     prem = state ([], t, p, bl, e, h) /\
     exists l,
@@ -3391,10 +3547,10 @@ Definition ActSTV := (mkSTV (quota)
     (Union_hwin) (UnionHwin_SanityCheck_App) (UnionHwin_SanityCheck_Red)
     (Union_ewin) (UnionEwin_SanityCheck_App) (UnionEwin_SanityCheck_Red)).
 
-Lemma init_stages_R_initial : ~ FT_final (initial (Filter bs)).
+Lemma init_stages_R_initial : ~ State_final (initial (Filter bs)).
 Proof.
  intro.
- unfold FT_final in H.
+ unfold State_final in H.
  destruct H.
  inversion H.
 Qed.
@@ -3430,7 +3586,7 @@ Proof.
 Qed.
 
 
-Definition ACT_LH_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition ACT_LH_transfer (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists nba t p np bl nbl h e,         (** transfer votes **) 
   prem = state ([], t, p, bl, e, h) /\ 
   (length (proj1_sig e) < st) /\
@@ -3490,7 +3646,7 @@ Definition ACTLH_Termination := Termination (initial (Filter bs)) init_stages_R_
 
 
 (* transferring only the last parcel of the head of the backlog *)
-Definition LastParcel_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition LastParcel_transfer (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists nba t p np bl nbl h e,         (** transfer votes **) 
   prem = state ([], t, p, bl, e, h) /\ 
   (length (proj1_sig e) < st) /\
@@ -3561,7 +3717,7 @@ Definition Update_transVal (c: cand) (p: cand -> list (list ballot)) (t: cand ->
 
 (* transfer value has changed so that only last parcel is to be transferred at a Manual_ACT rate*)
 (* note that only the last parcel is kept after being updated. The rest of the parcel is thrown out! *)
-Definition ManualACT_elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition ManualACT_elect (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists t p np (bl nbl: list cand) nh h (e ne: {l : list cand | length l <= st }),
     prem = state ([], t, p, bl, e, h) /\ 
     exists l,                                      
@@ -3683,12 +3839,18 @@ Definition ManualACT_STV :=
 Definition ManualACT_Termination := 
         Termination (initial (Filter bs)) init_stages_R_initial ManualACT_STV.
 *)
+*)
 
-End STV_Framework.
+(*End Base.*)
 
+End B.
+
+(*Module M := B Instantiation.*)
+
+(*
 Extraction Language Haskell.
 Extraction "Lib.hs" Act_Termination.
-
+*)
 (*Extraction "Lib.hs" Union_Termination.*)
 
 (*

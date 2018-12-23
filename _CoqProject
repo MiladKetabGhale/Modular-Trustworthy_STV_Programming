@@ -1,0 +1,9 @@
+-R . Modular-STVCalculi
+Parameters.v
+FrameBase.v
+ANUnion/Instantiation.v
+ANUnion/ANUnion.v
+VictoriaSTV/Instantiation.v
+VictoriaSTV/VictoriaSTV.v
+ActSTV/Instantiation.v
+ActSTV/ACTstv.v

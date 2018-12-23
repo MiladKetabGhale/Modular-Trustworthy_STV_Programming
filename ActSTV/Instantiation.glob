@@ -1,0 +1,126 @@
+DIGEST 6c995f26124c5c7fc70be16f051dcef7
+FModular-STVCalculi.ActSTV.Instantiation
+R15:28 Coq.Init.Peano <> <> lib
+R46:54 Coq.Init.Notations <> <> lib
+R72:85 Coq.Lists.List <> <> lib
+R103:134 Coq.Numbers.Natural.Peano.NPeano <> <> lib
+R152:166 Coq.omega.Omega <> <> lib
+R184:195 Coq.Arith.Le <> <> lib
+R213:233 Coq.Arith.Compare_dec <> <> lib
+R251:274 Coq.Numbers.NatInt.NZMul <> <> lib
+R292:317 Coq.Structures.OrdersFacts <> <> lib
+R335:349 Coq.ZArith.Znat <> <> lib
+R368:389 Coq.QArith.QArith_base <> <> lib
+R408:430 Coq.QArith.QOrderedType <> <> lib
+R448:458 Coq.QArith.QArith_base <> <> lib
+R460:469 Coq.Structures.Equalities <> <> lib
+R471:476 Coq.Structures.Orders <> <> lib
+R478:486 Coq.Structures.OrdersTac <> <> lib
+R504:526 Coq.Sorting.Permutation <> <> lib
+R544:545 Coq.Init.Wf <> <> lib
+R563:583 Coq.Wellfounded.Lexicographic_Product <> <> lib
+R601:610 Coq.QArith.Qreduction <> <> lib
+R628:640 Coq.Bool.Bool <> <> lib
+R658:670 Coq.Wellfounded.Inverse_Image <> <> lib
+R689:704 Coq.Bool.Sumbool <> <> lib
+R722:742 Coq.Sorting.Mergesort <> <> lib
+R863:872 Modular-STVCalculi.Parameters <> <> lib
+R890:898 Modular-STVCalculi.FrameBase <> <> lib
+ind 930:933 <> Cand
+constr 938:942 <> Alice
+constr 946:948 <> Bob
+constr 952:958 <> Charlie
+R943:943 Modular-STVCalculi.ActSTV.Instantiation <> Cand ind
+R949:949 Modular-STVCalculi.ActSTV.Instantiation <> Cand ind
+R959:959 Modular-STVCalculi.ActSTV.Instantiation <> Cand ind
+mod 968:978 <> Instantiate
+def 992:995 Instantiate cand
+R1000:1003 Modular-STVCalculi.ActSTV.Instantiation Instantiate Cand ind
+def 1017:1024 Instantiate cand_all
+R1029:1029 Coq.Lists.List ListNotations :list_scope:'['_x_';'_'..'_';'_x_']' not
+R1035:1035 Coq.Lists.List ListNotations :list_scope:'['_x_';'_'..'_';'_x_']' not
+R1039:1039 Coq.Lists.List ListNotations :list_scope:'['_x_';'_'..'_';'_x_']' not
+R1047:1047 Coq.Lists.List ListNotations :list_scope:'['_x_';'_'..'_';'_x_']' not
+R1040:1046 Modular-STVCalculi.ActSTV.Instantiation Instantiate Charlie constr
+R1036:1038 Modular-STVCalculi.ActSTV.Instantiation Instantiate Bob constr
+R1030:1034 Modular-STVCalculi.ActSTV.Instantiation Instantiate Alice constr
+def 1061:1062 Instantiate st
+def 1087:1091 Instantiate quota
+R1098:1100 Coq.QArith.QArith_base <> :Q_scope:x_'#'_x not
+def 1118:1128 Instantiate ValidBallot
+R1134:1137 Coq.Init.Datatypes <> list ind
+R1139:1142 Modular-STVCalculi.ActSTV.Instantiation Instantiate cand def
+R1162:1162 Modular-STVCalculi.ActSTV.Instantiation <> l var
+R1175:1176 Coq.Lists.List ListNotations :list_scope:'['_']' not
+R1181:1185 Coq.Init.Datatypes <> false constr
+R1198:1201 Coq.Init.Datatypes <> true constr
+prf 1219:1228 Instantiate cand_nodup
+R1232:1236 Coq.Lists.List <> NoDup ind
+R1238:1245 Modular-STVCalculi.ActSTV.Instantiation Instantiate cand_all def
+R1263:1270 Modular-STVCalculi.ActSTV.Instantiation Instantiate cand_all def
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1293:1302 Coq.Lists.List <> NoDup_cons constr
+R1399:1407 Coq.Lists.List <> NoDup_nil constr
+R1399:1407 Coq.Lists.List <> NoDup_nil constr
+prf 1427:1437 Instantiate cand_finite
+R1451:1452 Coq.Lists.List <> In def
+R1456:1463 Modular-STVCalculi.ActSTV.Instantiation Instantiate cand_all def
+R1454:1454 Modular-STVCalculi.ActSTV.Instantiation <> c var
+R1480:1487 Modular-STVCalculi.ActSTV.Instantiation Instantiate cand_all def
+R1565:1566 Coq.Lists.List <> In def
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+R0:-1 Modular-STVCalculi.ActSTV.Instantiation <> y var
+prf 1593:1603 Instantiate cand_eq_dec
+R1618:1621 Modular-STVCalculi.ActSTV.Instantiation Instantiate cand def
+R1627:1627 Coq.Init.Specif <> :type_scope:'{'_x_'}'_'+'_'{'_x_'}' not
+R1633:1637 Coq.Init.Specif <> :type_scope:'{'_x_'}'_'+'_'{'_x_'}' not
+R1644:1644 Coq.Init.Specif <> :type_scope:'{'_x_'}'_'+'_'{'_x_'}' not
+R1629:1631 Coq.Init.Logic <> :type_scope:x_'='_x not
+R1628:1628 Modular-STVCalculi.ActSTV.Instantiation <> c var
+R1632:1632 Modular-STVCalculi.ActSTV.Instantiation <> d var
+R1639:1642 Coq.Init.Logic <> :type_scope:x_'<>'_x not
+R1638:1638 Modular-STVCalculi.ActSTV.Instantiation <> c var
+R1643:1643 Modular-STVCalculi.ActSTV.Instantiation <> d var
+prf 1775:1785 Instantiate cand_in_dec
+R1800:1803 Modular-STVCalculi.ActSTV.Instantiation Instantiate cand def
+R1809:1809 Coq.Init.Specif <> :type_scope:'{'_x_'}'_'+'_'{'_x_'}' not
+R1816:1820 Coq.Init.Specif <> :type_scope:'{'_x_'}'_'+'_'{'_x_'}' not
+R1829:1829 Coq.Init.Specif <> :type_scope:'{'_x_'}'_'+'_'{'_x_'}' not
+R1810:1811 Coq.Lists.List <> In def
+R1815:1815 Modular-STVCalculi.ActSTV.Instantiation <> l var
+R1813:1813 Modular-STVCalculi.ActSTV.Instantiation <> c var
+R1821:1822 Coq.Init.Logic <> :type_scope:'~'_x not
+R1823:1824 Coq.Lists.List <> In def
+R1828:1828 Modular-STVCalculi.ActSTV.Instantiation <> l var
+R1826:1826 Modular-STVCalculi.ActSTV.Instantiation <> c var
+R1905:1915 Modular-STVCalculi.ActSTV.Instantiation Instantiate cand_eq_dec thm
+R1905:1915 Modular-STVCalculi.ActSTV.Instantiation Instantiate cand_eq_dec thm
+R2169:2179 Modular-STVCalculi.ActSTV.Instantiation <> <> mod
+R2195:2195 Modular-STVCalculi.FrameBase <> <> modtype
+R2197:2207 Modular-STVCalculi.ActSTV.Instantiation <> <> modtype
+mod 2190:2190 <> M

@@ -1,0 +1,10 @@
+ActSTV/*.vo
+ActSTV/*.glob
+ActSTV/*.d
+VictoriaSTV/*.vo
+VictoriaSTV/*.glob
+VictoriaSTV/*.d
+ANUnion/*.vo
+ANUnion/*.d
+ANUnion/*.glob
+
