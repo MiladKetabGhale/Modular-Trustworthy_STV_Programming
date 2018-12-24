@@ -35,13 +35,13 @@ Module VicSTV.
 
 Section Victoria.
 
-Definition VIC_InitStep (prem :FT_Judgement) (conc :FT_Judgement): Prop :=
+Definition VIC_InitStep (prem :Machine_States) (conc :Machine_States): Prop :=
  exists ba ba',  
   ((prem = (initial  ba)) /\
   (ba' = (Filter ba)) /\
   (conc = state  (ba', [nty], nas, (nbdy, nbdy), emp_elec , all_hopeful))).
 
-Definition VIC_count (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition VIC_count (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists ba t nt p np bl h e,                (** count the ballots requiring attention **)
   prem = state (ba, t, p, bl, e, h) /\     (* if we are in an intermediate state of the count *) 
   [] <> ba /\                                        (* and there are ballots requiring attention *)
@@ -55,21 +55,21 @@ Definition VIC_count (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
       else ((nt c) = (hd nty t) c) /\ (np c) = (p c)) /\                 
   conc = state ([], nt :: t, np, bl, e, h). 
 
-Definition VIC_hwin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition VIC_hwin (prem: Machine_States) (conc: Machine_States) : Prop :=
   exists w ba t p bl e h,                            
    prem = state (ba, t, p, bl, e, h) /\           
    length (proj1_sig e) + length (proj1_sig h) <= st /\ 
    w = (proj1_sig e) ++ (proj1_sig h) /\                        
    conc = winners (w).
 
-Definition VIC_ewin (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition VIC_ewin (prem: Machine_States) (conc: Machine_States) : Prop :=
   exists w ba t p bl e h,                    (** elected win **)
    prem = state (ba, t, p, bl, e, h) /\   (* if at any time *)
    length (proj1_sig e) = st /\             (* we have as many elected candidates as seats *) 
    w = (proj1_sig e) /\                        (* and the winners are precisely the electeds *)
    conc = winners (w).                      (* they are declared the winners *)
 
-Definition VIC_elim (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition VIC_elim (prem: Machine_States) (conc: Machine_States) : Prop :=
   exists  t p e h nh bl2,                    
    prem = state ([], t, p, ([], bl2), e, h) /\         
    length (proj1_sig e) + length (proj1_sig h) > st /\ 
@@ -79,7 +79,7 @@ Definition VIC_elim (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
      eqe c (proj1_sig nh) (proj1_sig h) /\                                                          
    conc = state ([], t, p, ([], c::bl2), e, nh)). 
 
-Definition VIC_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition VIC_transfer (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists nba t p np bl nbl h e,         (** transfer votes **) 
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
@@ -92,7 +92,7 @@ Definition VIC_transfer (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
      (forall d, d <> c -> np(d) = p(d))) /\ (* and the piles for every other candidate remain the same *)   
    conc = state (nba, t, np, nbl, e, h).  
 
-Definition VIC_elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
+Definition VIC_elect (prem: Machine_States) (conc: Machine_States) : Prop :=
  exists t p np (bl nbl: (list cand) * (list cand)) (nh h: {hopeful: list cand | NoDup hopeful})(e ne: {l : list cand | length l <= st }),
     prem = state ([], t, p, bl, e, h) /\ 
     exists l,                                      
@@ -108,7 +108,7 @@ Definition VIC_elect (prem: FT_Judgement) (conc: FT_Judgement) : Prop :=
     fst nbl = (fst bl) ++ l) /\                                 
   conc = state ([], t, np, nbl, ne, nh).      
 
-Definition VIC_TransferElected2 (prem: FT_Judgement) (conc: FT_Judgement) :=
+Definition VIC_TransferElected2 (prem: Machine_States) (conc: Machine_States) :=
  exists nba t p np bl nbl h e,         
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
@@ -122,7 +122,7 @@ Definition VIC_TransferElected2 (prem: FT_Judgement) (conc: FT_Judgement) :=
      (forall d, d <> c -> np(d) = p(d))) /\    
    conc = state (nba, t, np, nbl, e, h). 
 
-Definition VIC_TransferElim (prem: FT_Judgement) (conc: FT_Judgement) :=
+Definition VIC_TransferElim (prem: Machine_States) (conc: Machine_States) :=
  exists nba t p np bl nbl h e,         
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
@@ -161,7 +161,7 @@ Lemma VICInitStep_SanityCheck_Red: SanityCheck_Initial_Red VIC_InitStep.
  intuition.
 Qed.
 
-Hypothesis Bl_hopeful_NoIntersect : forall j: FT_Judgement, forall ba t p bl e h, j = state (ba,t,p,bl,e,h) ->
+Hypothesis Bl_hopeful_NoIntersect : forall j: Machine_States, forall ba t p bl e h, j = state (ba,t,p,bl,e,h) ->
  (forall c, In c (snd bl) -> ~ In c (proj1_sig h)) * (forall c, In c (fst bl) -> ~ In c (snd bl)).
 
 Lemma VICCount_SanityCheck_App : SanityCheck_Count_App VIC_count.
@@ -533,7 +533,7 @@ Proof.
  auto.
 Qed.
 
-Hypothesis Bl_NoDup : forall j: FT_Judgement, forall ba t p bl e h, 
+Hypothesis Bl_NoDup : forall j: Machine_States, forall ba t p bl e h, 
   j = state (ba,t,p,bl,e,h) -> NoDup (snd bl).
 
 Lemma VIC_TransferElim_SanityCheck_App : SanityCheck_Transfer3_App VIC_TransferElim.
@@ -656,10 +656,10 @@ Definition VicSTV := (mkSTV (quota)
     (VIC_hwin) (VICHwin_SanityCheck_App) (VICHwin_SanityCheck_Red)
     (VIC_ewin) (VICEwin_SanityCheck_App) (VICEwin_SanityCheck_Red)).
 
-Lemma init_stages_R_initial : ~ FT_final (initial (Filter bs)).
+Lemma init_stages_R_initial : ~ State_final (initial (Filter bs)).
 Proof.
  intro.
- unfold FT_final in H.
+ unfold State_final in H.
  destruct H.
  inversion H.
 Qed.
