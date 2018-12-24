@@ -21,16 +21,22 @@ Require Import Coq.Bool.Sumbool.
 Require Import Coq.Sorting.Mergesort.
 Import ListNotations.
 (*Add LoadPath "STV".*)
+Add LoadPath "/home/users/u5711205/Modular-STVCalculi/".
 Require Import Parameters.
 Require Import FrameBase.
+Import FrameBase.
 
-Inductive Cand := A | B | C | D | E.
-
+Inductive Cand := Alice | Bob | Charlie.
 Module Instantiate.
-
 Definition cand := Cand.
-
-Definition cand_all := [A;B;C;D;E].
+Definition cand_all := [Alice;Bob;Charlie].
+Definition st := (1)%nat.
+Definition quota := (8 # 3)%Q.
+Definition ValidBallot (l: list cand) :=    
+    match l with
+      [] => false
+     |_ => true
+    end.
 
 Lemma cand_nodup : NoDup cand_all.
 Proof.
@@ -77,9 +83,14 @@ Proof.
  auto.
 Defined.
 
+(*
 Definition st := (1)%nat.
 
 Definition quota := (2 # 1)%Q.
+*)
+
+
+      
 
 End Instantiate.
 
