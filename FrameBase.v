@@ -35,6 +35,7 @@ Require Import Coq.Program.Basics.
 Require Import Coq.Arith.Wf_nat.
 Require Import Program.
 Require Import  Recdef.
+Add LoadPath "/home/users/u5711205/Modular-STVCalculi/".
 Require Export Parameters.
 (*Import Params.
 *)
@@ -849,6 +850,17 @@ Definition Is_empty (l : list cand) :=
 end.
 *)
 (* note that I have put the null tally as the default value for head in case of empty list *)
+
+(* --------------------------------------------------------------------------------- *)
+  (* If we wish to keep the list of eliminated in the bl2 all the way up to the
+     end, then we need to consider the case that concatening the pile of the head of bl2 is 
+       not empty so that we know which one of transfer-elected r transfer-removed should
+        correctly be applied. There is a cleaner way and that is to simply either allow the
+         bl2 to be empty or just include the most recently excluded candidate. This way we
+          can get rid of considering if concat of pile of head of bl2 is empty or not by
+            including a simpler check inside the transfer-excluded that ensures the 
+              updated the head of the updated bl2 has some votes in it to distribute still *)
+(* 
 Definition SanityCheck_Transfer1_App (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise, forall t p (bl: (list X.cand) * (list X.cand)) e h, 
  (premise = state ([], t, p, (fst bl, []), e, h)) -> (length (proj1_sig e) < X.st) /\ 
@@ -866,25 +878,39 @@ Definition SanityCheck_Transfer3_App (R: Machine_States -> Machine_States -> Pro
  (length (proj1_sig e) < X.st) /\ (bl1 <> []) /\ (concat (p c) <> []) /\ 
  (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) ->
      existsT conc, R premise conc.
+*)
 
-Definition SanityCheck_Transfer_Red (R: Machine_States -> Machine_States -> Prop) :=
+Definition SanityCheck_TransferElected_App (R: Machine_States -> Machine_States -> Prop) :=
+ (forall premise, forall t p (bl: (list X.cand) * (list X.cand)) e h, 
+ (premise = state ([], t, p, (fst bl, []), e, h)) -> (length (proj1_sig e) < X.st) /\ 
+ (fst bl <> []) /\ (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) -> 
+    existsT conc, R premise conc).
+
+Definition SanityCheck_TransferRemoved_App (R: Machine_States -> Machine_States -> Prop) :=
+ forall premise, forall t p bl1 bl2 c e h , (premise = state ([], t, p, (bl1, c::bl2), e, h)) ->
+ (length (proj1_sig e) < X.st) /\  
+ (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) ->
+     existsT conc, R premise conc.
+
+ 
+Definition SanityCheck_TransferElected_Red (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise conclusion, R premise conclusion ->
    exists nba t p np bl nbl h e,
    (premise = state ([], t, p, bl, e, h)) /\
-   (
-     (
-      (length (fst nbl) < length (fst bl)) /\ 
+   (length (fst nbl) < length (fst bl)) /\ 
        (Sum_nat (map (fun c => length (concat (p c))) (snd bl)) = 
-             Sum_nat (map (fun c => length (concat (np c))) (snd nbl)))
-     )
-    \/ (
-        (length (fst nbl) = length (fst bl)) /\ 
-          (Sum_nat (map (fun c => length (concat (np c))) (snd nbl)) < 
-                               Sum_nat (map (fun c => length (concat (p c))) (snd bl)))
-       )
-    )
- /\
-   (conclusion = state (nba, t, np, nbl, e, h))). 
+             Sum_nat (map (fun c => length (concat (np c))) (snd nbl))) /\
+    (conclusion = state (nba, t, np, nbl, e, h))). 
+
+Definition SanityCheck_TransferRemoved_Red (R: Machine_States -> Machine_States -> Prop) :=
+ (forall premise conclusion, R premise conclusion ->
+   exists nba t p np bl nbl h e,
+   (premise = state ([], t, p, bl, e, h)) /\
+   (length (fst nbl) = length (fst bl)) /\ 
+       (Sum_nat (map (fun c => length (concat (np c))) (snd nbl)) <  
+             Sum_nat (map (fun c => length (concat (p c))) (snd bl))) /\
+    (conclusion = state (nba, t, np, nbl, e, h))). 
+
 
 Definition SanityCheck_Elect_App (R: Machine_States -> Machine_States -> Prop) :=
  (forall premise, forall t p bl e h, (premise = state ([], t, p, bl, e, h)) ->
@@ -900,8 +926,11 @@ Definition SanityCheck_Elect_Red (R: Machine_States -> Machine_States -> Prop) :
           (length (proj1_sig e) < length (proj1_sig ne)) /\
      (conclusion = state ([], t, np, nbl, ne, nh))).
 
+(* I have made bl2 empty because of the decision above, namely that bl2 is either empty or 
+   has at most one element in it at each time. Now a candidate is eliminated only if there is
+   no vote to transfer either elected ones or removed one. *)
 Definition SanityCheck_Elim_App (R: Machine_States -> Machine_States -> Prop) :=
-  (forall premise, forall t p e h bl2, (premise = state ([], t, p, ([], bl2), e, h)) ->
+  (forall premise, forall t p e h, (premise = state ([], t, p, ([], []), e, h)) ->
      length (proj1_sig e) + length (proj1_sig h) > X.st /\
      (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) -> existsT conc, R premise conc).
 
@@ -936,22 +965,21 @@ Definition SanityCheck_Ewin_Red (R: Machine_States -> Machine_States -> Prop) :=
     (conclusion = winners (proj1_sig e))).
 
 Record STV := 
-   mkSTV {qu: Q;
-          initStep: Machine_States -> Machine_States -> Prop;
+   mkSTV {initStep: Machine_States -> Machine_States -> Prop;
           evidence_applicability_initStep: (SanityCheck_Initial_App initStep);
           evidence_reducibility_initStep: (SanityCheck_Initial_Red initStep);
           count: Machine_States -> Machine_States -> Prop;
           evidence_applicability_count: (SanityCheck_Count_App count);
           evidence_reducibility_count: (SanityCheck_Count_Red count);    
-          transfer1_elected: Machine_States -> Machine_States -> Prop;
-          evidence_applicability_transfer1: (SanityCheck_Transfer1_App transfer1_elected);
-          evidence_reducibility_transfer1: (SanityCheck_Transfer_Red transfer1_elected);
-          transfer2_elected: Machine_States -> Machine_States -> Prop;
+          transfer_elected: Machine_States -> Machine_States -> Prop;
+          evidence_applicability_transferElected: (SanityCheck_TransferElected_App transfer_elected);
+          evidence_reducibility_transferElected: (SanityCheck_TransferElected_Red transfer_elected);
+        (*  transfer2_elected: Machine_States -> Machine_States -> Prop;
           evidence_applicability_transfer2_elected: (SanityCheck_Transfer2_App transfer2_elected);
-          evidence_reducibility_transfer2_elected: (SanityCheck_Transfer_Red transfer2_elected);
-          transfer_elim: Machine_States -> Machine_States -> Prop;
-          evidence_applicability_transfer2: (SanityCheck_Transfer3_App transfer_elim);
-          evidence_reducibility_transfer2: (SanityCheck_Transfer_Red transfer_elim);
+          evidence_reducibility_transfer2_elected: (SanityCheck_Transfer_Red transfer2_elected); *)
+          transfer_removed: Machine_States -> Machine_States -> Prop;
+          evidence_applicability_transferRemoved: (SanityCheck_TransferRemoved_App transfer_removed);
+          evidence_reducibility_transferRemoved: (SanityCheck_TransferRemoved_Red transfer_removed);
           elect: Machine_States -> Machine_States -> Prop;
           evidence_applicability_elect: (SanityCheck_Elect_App elect);
           evidence_reducibility_elect: (SanityCheck_Elect_Red elect);
@@ -1026,17 +1054,17 @@ Proof.
  contradict ep. exists l. auto.
 Qed.
 
-Lemma dec_TransferElected1 : forall (s: STV) (p c : Machine_States),
- transfer1_elected s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Lemma dec_TransferElected : forall (s: STV) (p c : Machine_States),
+ transfer_elected s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
 Order_NatProduct (Measure_States (IsNonFinal c ec))
   (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s. 
  simpl in Hr.
- unfold SanityCheck_Transfer_Red in evidence_reducibility_transfer3.
- specialize (evidence_reducibility_transfer3 p c Hr).
- destruct evidence_reducibility_transfer3 as [nba [t [p0 [np [bl [nbl [h [e [Hev21 [Hev22 Hev23]]]]]]]]]].
+ unfold SanityCheck_TransferElected_Red in evidence_reducibility_transferElected0.
+ specialize (evidence_reducibility_transferElected0 p c Hr).
+ destruct evidence_reducibility_transferElected0 as [nba [t [p0 [np [bl [nbl [h [e [Hev21 [Hev22 [Hev22' Hev23]]]]]]]]]]].
  destruct p.
  inversion Hev21.
  destruct c.
@@ -1048,13 +1076,14 @@ Proof.
  simpl.
  unfold Order_NatProduct.
  rewrite -> wfo_aux.
- destruct Hev22 as [Hev221 | Hev222].
+ (* destruct Hev22 as [Hev221 | Hev222]. *)
  right; right;right; left. intuition.
- right; right; left.  intuition. 
+(* right; right; left.  intuition. *) 
  contradict ec; unfold State_final; exists l ;auto.
  contradict ep; exists l; auto.
 Qed.
 
+(*
 Lemma dec_TransferElected2 : forall (s: STV) (p c: Machine_States),
  transfer2_elected s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
 Order_NatProduct (Measure_States (IsNonFinal c ec))
@@ -1084,18 +1113,19 @@ Proof.
  contradict ec; unfold State_final; exists l ;auto.
  contradict ep; exists l; auto.
 Qed.
+*)
 
-Lemma dec_TransferEliminated : forall (s: STV) (p c : Machine_States),
- transfer_elim s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
+Lemma dec_TransferRemoved : forall (s: STV) (p c : Machine_States),
+ transfer_removed s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
 Order_NatProduct (Measure_States (IsNonFinal c ec))
   (Measure_States (IsNonFinal p ep)).
 Proof.
  intros s p c Hr ep ec.
  destruct s. 
  simpl in Hr.
- unfold SanityCheck_Transfer_Red in evidence_reducibility_transfer4.
- specialize (evidence_reducibility_transfer4 p c Hr).
- destruct evidence_reducibility_transfer4 as [nba [t [p0 [np [bl [nbl [h [e [Hev21 [Hev22 Hev23]]]]]]]]]].
+ unfold SanityCheck_TransferRemoved_Red in evidence_reducibility_transferRemoved0.
+ specialize (evidence_reducibility_transferRemoved0 p c Hr).
+ destruct evidence_reducibility_transferRemoved0 as [nba [t [p0 [np [bl [nbl [h [e [Hev21 [Hev22 [Hev22' Hev23]]]]]]]]]]].
  destruct p.
  inversion Hev21.
  destruct c.
@@ -1107,13 +1137,13 @@ Proof.
  simpl.
  unfold Order_NatProduct.
  rewrite -> wfo_aux.
- destruct Hev22 as [Hev221 | Hev222].
- right; right;right; left. intuition.
- right; right; left.  intuition. 
+ (* destruct Hev22 as [Hev221 | Hev222]. *)
+ right; right; left. intuition.
+ (* right; right; left.  intuition. *) 
  contradict ec; unfold State_final; exists l ;auto.
  contradict ep; exists l; auto.
 Qed.
-
+ 
 Lemma dec_Elect : forall (s: STV) (p c : Machine_States),
  elect s p c -> forall (ep : ~ State_final p) (ec : ~ State_final c),
 Order_NatProduct (Measure_States (IsNonFinal c ec))
@@ -1213,11 +1243,19 @@ Proof.
  contradict ec; exists l; auto.
  contradict ep; exists l; auto.
 Qed.
+   
  
-Lemma measure_dec : forall (s: STV) (p c: Machine_States), (initStep s p c) \/ (count s p c) \/ 
-    (elect s p c) \/ (transfer1_elected s p c) \/ (transfer2_elected s p c) \/ (transfer_elim s p c)  
-                  \/ (elim s p c) \/ (hwin s p c) \/ (ewin s p c) -> 
-    forall (ep : ~ State_final p) (ec: ~ State_final c), Order_NatProduct (Measure_States (IsNonFinal c ec)) (Measure_States (IsNonFinal p ep)).   
+Lemma measure_dec : forall (s: STV) (p c: Machine_States), 
+    (initStep s p c) 
+ \/ (count s p c) 
+ \/ (elect s p c) 
+ \/ (transfer_elected s p c) 
+ \/ (transfer_removed s p c)  
+ \/ (elim s p c) 
+ \/ (hwin s p c) \/ (ewin s p c) -> 
+    forall (ep : ~ State_final p) (ec: ~ State_final c), 
+    Order_NatProduct (Measure_States (IsNonFinal c ec)) 
+                     (Measure_States (IsNonFinal p ep)).   
 Proof.
  intros s p c H ep ec.
  destruct H.
@@ -1227,11 +1265,11 @@ Proof.
  destruct H.
  apply (dec_Elect s p c H ep ec).
  destruct H.
- apply (dec_TransferElected1 s p c H ep ec).
+ apply (dec_TransferElected s p c H ep ec).
+(* destruct H.
+ apply (dec_TransferElected2 s p c H ep ec). *)
  destruct H.
- apply (dec_TransferElected2 s p c H ep ec).
- destruct H.
- apply (dec_TransferEliminated s p c H ep ec).
+ apply (dec_TransferRemoved s p c H ep ec).
  destruct H.
  apply (dec_Elim s p c H ep ec).
  destruct H.
@@ -1244,21 +1282,39 @@ Qed.
                                     emp_elec,all_hopeful)) *)
 
 
-Inductive Certificate (st: nat) (bs: list ballot) (s: STV) (j0: Machine_States): Machine_States -> Type:=
-  start:  forall j, (j = j0) -> Certificate st bs s j0 j
- |appInit: forall j1 j2, Certificate st bs s j0 j1 -> initStep s j1 j2 -> Certificate st bs s j0 j2 
- |appCount: forall j1 j2, Certificate st bs s j0 j1 -> count s j1 j2 -> Certificate st bs s j0 j2   
- |appElect: forall j1 j2, Certificate st bs s j0 j1 -> elect s j1 j2 -> Certificate st bs s j0 j2
- |appTrans1: forall j1 j2, Certificate st bs s j0 j1 -> transfer1_elected s j1 j2 -> Certificate st bs s j0 j2
- |appTrans2: forall j1 j2, Certificate st bs s j0 j1 -> transfer2_elected s j1 j2 -> Certificate st bs s j0 j2
- | appTrans3: forall j1 j2, Certificate st bs s j0 j1 -> transfer_elim s j1 j2 -> Certificate st bs s j0 j2
- | appElim: forall j1 j2, Certificate st bs s j0 j1 -> elim s j1 j2 -> Certificate st bs s j0 j2 
- | appHwin: forall j1 j2, Certificate st bs s j0 j1 -> hwin s j1 j2 -> Certificate st bs s j0 j2
- | appEwin: forall j1 j2, Certificate st bs s j0 j1 -> ewin s j1 j2 -> Certificate st bs s j0 j2.
+Inductive Certificate 
+   (st: nat) (bs: list ballot) 
+   (s: STV) (j0: Machine_States): Machine_States -> Type:=
+  start:  
+  forall j, (j = j0) -> Certificate st bs s j0 j
+ |appInit: 
+  forall j1 j2, Certificate st bs s j0 j1 -> initStep s j1 j2 
+                 -> Certificate st bs s j0 j2 
+ |appCount: 
+  forall j1 j2, Certificate st bs s j0 j1 -> count s j1 j2 
+                 -> Certificate st bs s j0 j2   
+ |appElect: 
+  forall j1 j2, Certificate st bs s j0 j1 -> elect s j1 j2 
+                 -> Certificate st bs s j0 j2
+ |appTransElected: 
+  forall j1 j2, Certificate st bs s j0 j1 -> transfer_elected s j1 j2 
+                 -> Certificate st bs s j0 j2
+ |appTransRemoved: 
+  forall j1 j2, Certificate st bs s j0 j1 -> transfer_removed s j1 j2 
+                 -> Certificate st bs s j0 j2
+ | appElim: 
+  forall j1 j2, Certificate st bs s j0 j1 -> elim s j1 j2 
+                 -> Certificate st bs s j0 j2 
+ | appHwin: 
+  forall j1 j2, Certificate st bs s j0 j1 -> hwin s j1 j2 
+                 -> Certificate st bs s j0 j2
+ | appEwin: 
+  forall j1 j2, Certificate st bs s j0 j1 -> ewin s j1 j2 
+                 -> Certificate st bs s j0 j2.
 
 Lemma Rule_Application : forall (s: STV) (j1: Machine_States), ~ (State_final j1) -> 
-   existsT j2, {initStep s j1 j2} + {count s j1 j2} + {elect s j1 j2} + {transfer1_elected s j1 j2} + 
-   {transfer2_elected s j1 j2} + {transfer_elim s j1 j2} + {elim s j1 j2} + {hwin s j1 j2} + {ewin s j1 j2}. 
+   existsT j2, {initStep s j1 j2} + {count s j1 j2} + {elect s j1 j2} + {transfer_elected s j1 j2} + 
+   {transfer_removed s j1 j2} + {elim s j1 j2} + {hwin s j1 j2} + {ewin s j1 j2}. 
 Proof.
  intros s j1 H.
  destruct s.
@@ -1333,27 +1389,37 @@ Proof.
  destruct s.
  destruct a. 
  intro. rewrite H2 in H0. inversion H0.
- (* the case for elimination *)
+ (* the case for elimination or transfer_removed*)
+ destruct bl2.
+ (* elimination *)
  unfold SanityCheck_Elim_App in evidence_applicability_elim0.
- specialize (evidence_applicability_elim0 (state ([], t, pile, ([], bl2), e, h)) t pile e h bl2 (eq_refl)) .
+ specialize (evidence_applicability_elim0 (state ([], t, pile, ([], []), e, h)) t pile e h  (eq_refl)) .
  intuition. 
  destruct X0 as [conc Hconc].
  exists conc.
  left; left; right. auto.
+ (* the case for transfer_removed *)
+ unfold SanityCheck_TransferRemoved_App in evidence_applicability_transferRemoved0. 
+ specialize (evidence_applicability_transferRemoved0 (state ([], t, pile,([],c::bl2),e, h)) t pile [] bl2 c e h (eq_refl)). 
+ intuition.
+ destruct X0 as [conc Hconc].
+ exists conc.
+ left; left; left; right. auto.
  (* the case of transfer *)
- unfold SanityCheck_Transfer1_App in evidence_applicability_transfer3.
+ unfold SanityCheck_TransferElected_App in evidence_applicability_transferElected0.
  (* here I pull the rabit out and destruct on the second component of backlog to take care of Victoria-elim*)
  destruct bl2.
- specialize (evidence_applicability_transfer3 (state ([], t, pile, (c::bl1, []), e,h)) t pile (c::bl1, []) e h).
- simpl in evidence_applicability_transfer3.
+ specialize (evidence_applicability_transferElected0 (state ([], t, pile, (c::bl1, []), e,h)) t pile (c::bl1, []) e h).
+ simpl in evidence_applicability_transferElected0.
  intuition.
  assert (Hyp: (fst (c:: bl1, ([]: list X.cand))) = [] -> False). intro Hyp1. simpl in Hyp1. inversion Hyp1. 
  intuition.
  destruct X1 as [conc X31].
  exists conc. 
- left; left;left;left;left. right. assumption.
+ left; left;left;left. right. assumption.
  (* the case where the snd of backlog is not empty, still in transfer phase*)
- assert (Hyz: sumbool (concat (pile c0) = []) (concat (pile c0) <> [])).
+ (* the following part is commented out because of the change for transferRemoved *)
+ (* assert (Hyz: sumbool (concat (pile c0) = []) (concat (pile c0) <> [])).
  destruct (concat (pile c0)). left;auto. right. intro.  inversion H0.
  destruct Hyz as [i | j].
  (* if the snd of backlog is empty then continue with the noraml transfer of elected votes *) 
@@ -1365,11 +1431,12 @@ Proof.
  intuition.
  destruct X0 as [conc X11].
  exists conc. 
- left;left;left; left. right. assumption.
+ left;left;left; left. right. assumption. *)
+
  (* the case where still some ballots of the eliminated await transfer *)
- specialize (evidence_applicability_transfer4 (state ([], t, pile, (c::bl1, c0::bl2), e, h)) t pile
+ specialize (evidence_applicability_transferRemoved0 (state ([], t, pile, (c::bl1, c0::bl2), e, h)) t pile
                  (c::bl1) bl2 c0 e h (eq_refl)).
- simpl in evidence_applicability_transfer4.
+ simpl in evidence_applicability_transferRemoved0.
  assert (hypAux: c::bl1 <> []). intro myhyp. inversion myhyp.
  intuition.
  destruct X0 as [conc X11].
@@ -1387,7 +1454,7 @@ Proof.
  specialize (evidence_applicability_elect0 HypE2).
  destruct evidence_applicability_elect0 as [conc HevElect21]. 
  exists conc.
- left; left; left; left; left;left; right. assumption.
+ left; left; left; left; left; right. assumption.
  (* the case for count application *)
  unfold SanityCheck_Count_App in evidence_applicability_count0.  
  specialize (evidence_applicability_count0 (state (b ::ba, t, pile, bl, e, h)) (b::ba) t pile bl h e (eq_refl)).
@@ -1395,7 +1462,7 @@ Proof.
  specialize (evidence_applicability_count0 HyCount). 
  destruct evidence_applicability_count0 as [conc HevCount].
  exists conc.
- left; left; left; left; left; left;left; right. auto.
+ left; left; left; left; left; left; right. auto.
  (* the case for ewin *)
  unfold SanityCheck_Ewin_App in evidence_applicability_ewin0.
  specialize (evidence_applicability_ewin0 (state (ba, t, pile, bl, e, h)) ba t pile bl e h  (eq_refl)). 
@@ -1428,32 +1495,32 @@ Proof.
  destruct LLLLH11 as [LLLLLH11 | RLLLLH11].
  destruct LLLLLH11 as [L6H11 | RL5H11].
  destruct L6H11 as [L7H11 |L7H12].
- destruct L7H11 as [L8H11 | L8H12].
+ (*destruct L7H11 as [L8H11 | L8H12]. *)
  exists conc.
  split.
  apply (appInit X.st bs s j0 j1). assumption. auto.
  intro evconc. 
- apply (dec_Initial s j1 conc L8H11). 
+ apply (dec_Initial s j1 conc L7H11). 
  exists conc. 
  split.
  apply (appCount X.st bs s j0 j1). assumption. auto.
- apply (dec_Count s j1 conc L8H12).
+ apply (dec_Count s j1 conc L7H12).
  exists conc.
  split.
  apply (appElect X.st bs s j0 j1). assumption. auto.
- apply (dec_Elect s j1 conc L7H12). 
+ apply (dec_Elect s j1 conc RL5H11). 
  exists conc. 
  split. 
- apply (appTrans1 X.st bs s j0 j1).  assumption. auto.
- apply (dec_TransferElected1 s j1 conc RL5H11).
+ apply (appTransElected X.st bs s j0 j1).  assumption. auto.
+ apply (dec_TransferElected s j1 conc RLLLLH11).
  exists conc.
  split.
- apply (appTrans2 X.st bs s j0 j1). assumption. auto.
+(* apply (appTrans2 X.st bs s j0 j1). assumption. auto.
  apply (dec_TransferElected2 s j1 conc RLLLLH11).
  exists conc.
- split.
- apply (appTrans3 X.st bs s j0 j1). assumption. auto.
- apply (dec_TransferEliminated s j1 conc RLLLH11).
+ split. *)
+ apply (appTransRemoved X.st bs s j0 j1). assumption. auto.
+ apply (dec_TransferRemoved s j1 conc RLLLH11).
  exists conc.
  split.
  apply (appElim X.st bs s j0 j1). assumption. auto.
