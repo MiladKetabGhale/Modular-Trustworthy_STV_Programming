@@ -881,14 +881,15 @@ Definition SanityCheck_Transfer3_App (R: Machine_States -> Machine_States -> Pro
 *)
 
 Definition SanityCheck_TransferElected_App (R: Machine_States -> Machine_States -> Prop) :=
- (forall premise, forall t p (bl: (list X.cand) * (list X.cand)) e h, 
- (premise = state ([], t, p, (fst bl, []), e, h)) -> (length (proj1_sig e) < X.st) /\ 
- (fst bl <> []) /\ (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) -> 
+ (forall premise, forall t p bl1 bl2 e h, 
+ (premise = state ([], t, p, (bl1, bl2), e, h)) -> (length (proj1_sig e) < X.st) /\ 
+  (bl1 <> []) /\ ((bl2 = []) \/ (exists head tail, (bl2 = head :: tail) /\ (concat (p head) = []))) /\ 
+  (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) -> 
     existsT conc, R premise conc).
 
 Definition SanityCheck_TransferRemoved_App (R: Machine_States -> Machine_States -> Prop) :=
  forall premise, forall t p bl1 bl2 c e h , (premise = state ([], t, p, (bl1, c::bl2), e, h)) ->
- (length (proj1_sig e) < X.st) /\  
+ (length (proj1_sig e) < X.st) /\ (concat (p c) <> []) /\  
  (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) ->
      existsT conc, R premise conc.
 
@@ -925,13 +926,14 @@ Definition SanityCheck_Elect_Red (R: Machine_States -> Machine_States -> Prop) :
           (length (proj1_sig nh) < length (proj1_sig h)) /\
           (length (proj1_sig e) < length (proj1_sig ne)) /\
      (conclusion = state ([], t, np, nbl, ne, nh))).
-
+ 
 (* I have made bl2 empty because of the decision above, namely that bl2 is either empty or 
    has at most one element in it at each time. Now a candidate is eliminated only if there is
    no vote to transfer either elected ones or removed one. *)
 Definition SanityCheck_Elim_App (R: Machine_States -> Machine_States -> Prop) :=
-  (forall premise, forall t p e h, (premise = state ([], t, p, ([], []), e, h)) ->
+  (forall premise, forall t p e h bl2, (premise = state ([], t, p, ([], bl2), e, h)) ->
      length (proj1_sig e) + length (proj1_sig h) > X.st /\
+     ((bl2 = []) \/ (exists head tail, bl2 = head :: tail /\ (concat (p head) = []))) /\
      (forall c, In c (proj1_sig h) -> ((hd nty t) c < X.quota)%Q) -> existsT conc, R premise conc).
 
 Definition SanityCheck_Elim_Red (R: Machine_States -> Machine_States -> Prop) :=
@@ -1393,11 +1395,21 @@ Proof.
  destruct bl2.
  (* elimination *)
  unfold SanityCheck_Elim_App in evidence_applicability_elim0.
- specialize (evidence_applicability_elim0 (state ([], t, pile, ([], []), e, h)) t pile e h  (eq_refl)) .
+ specialize (evidence_applicability_elim0 (state ([], t, pile, ([], []), e, h)) t pile e h [] (eq_refl)).
  intuition. 
- destruct X0 as [conc Hconc].
+ destruct X1 as [conc Hconc]. trivial. auto.
  exists conc.
  left; left; right. auto.
+ (* the case where bl2 is not empty *)
+  assert (Hyz: sumbool (concat (pile c) = []) (concat (pile c) <> [])).
+ destruct (concat (pile c)). left;auto. right. intro XX. inversion XX.
+ (* the case when c's votes have all been distributed*)
+ destruct Hyz as [Hyz1 | Hyz2]. 
+ specialize(evidence_applicability_elim0 (state ([],t, pile,([],c:: bl2),e,h)) t pile e h (c::bl2) (eq_refl)). intuition.  
+ destruct X2 as [conc Hconc].  exists c. exists bl2. auto. assumption.
+ exists conc.
+ left;left;right. auto.
+ (* the case when c's votes have not all been distributed *)
  (* the case for transfer_removed *)
  unfold SanityCheck_TransferRemoved_App in evidence_applicability_transferRemoved0. 
  specialize (evidence_applicability_transferRemoved0 (state ([], t, pile,([],c::bl2),e, h)) t pile [] bl2 c e h (eq_refl)). 
@@ -1409,12 +1421,12 @@ Proof.
  unfold SanityCheck_TransferElected_App in evidence_applicability_transferElected0.
  (* here I pull the rabit out and destruct on the second component of backlog to take care of Victoria-elim*)
  destruct bl2.
- specialize (evidence_applicability_transferElected0 (state ([], t, pile, (c::bl1, []), e,h)) t pile (c::bl1, []) e h).
+ specialize (evidence_applicability_transferElected0 (state ([], t, pile, (c::bl1, []), e,h)) t pile (c::bl1) [] e h).
  simpl in evidence_applicability_transferElected0.
+ intuition. 
+ assert (Hyp: c:: bl1 = [] -> False). intro Hyp1. simpl in Hyp1. inversion Hyp1. 
  intuition.
- assert (Hyp: (fst (c:: bl1, ([]: list X.cand))) = [] -> False). intro Hyp1. simpl in Hyp1. inversion Hyp1. 
- intuition.
- destruct X1 as [conc X31].
+ destruct X0 as [conc X31].
  exists conc. 
  left; left;left;left. right. assumption.
  (* the case where the snd of backlog is not empty, still in transfer phase*)
@@ -1433,7 +1445,19 @@ Proof.
  exists conc. 
  left;left;left; left. right. assumption. *)
 
- (* the case where still some ballots of the eliminated await transfer *)
+ (* the case where bl2 is not empty*)
+  assert (Hyz: sumbool (concat (pile c0) = []) (concat (pile c0) <> [])).
+ destruct (concat (pile c0)). left;auto. right. intro XX. inversion XX.
+ destruct Hyz as [Hyz1 | Hyz2].
+(* the subcase where c0's votes have all been distributed*)
+(*specialize (evidence_applicability_transferElected0 (state ([],t,pile,(c::bl1,*)
+specialize (evidence_applicability_transferElected0 (state ([],t,pile,(c::bl1,c0::bl2),e,h)) t pile (c::bl1) (c0::bl2) e h (eq_refl)).
+ assert (HypoX: c :: bl1 <> []). intro XXX. inversion XXX.
+intuition. 
+destruct X2 as [conc Hconc]. exists c0. exists bl2. auto. auto.
+ exists conc.  
+left;left;left;left. right. auto.
+(* the subcase when c0's votes are not fully distributed*)
  specialize (evidence_applicability_transferRemoved0 (state ([], t, pile, (c::bl1, c0::bl2), e, h)) t pile
                  (c::bl1) bl2 c0 e h (eq_refl)).
  simpl in evidence_applicability_transferRemoved0.
