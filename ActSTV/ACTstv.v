@@ -24,8 +24,10 @@ Require Import Coq.Program.Basics.
 Require Import Coq.Arith.Wf_nat.
 Require Import Program.
 Require Import  Recdef.
+Add LoadPath "/home/users/u5711205/Modular-STVCalculi/".
 Require Export Parameters.
 Require Import FrameBase.
+Add LoadPath "/home/users/u5711205/Modular-STVCalculi/ActSTV".
 Require Export Instantiation.
 Import Instantiate.
 Import M.
@@ -71,7 +73,7 @@ Definition ACT_ewin (prem: Machine_States) (conc: Machine_States) : Prop :=
    conc = winners (w).                      (* they are declared the winners *)
 
 Definition ACT_elim (prem: Machine_States) (conc: Machine_States) : Prop :=
-  exists nba t p np e h nh bl2,                    
+  exists nba t p np bl2 e h nh,                    
    prem = state ([], t, p, ([], bl2), e, h) /\         
    length (proj1_sig e) + length (proj1_sig h) > st /\ 
    (forall c, In c (proj1_sig h) -> (hd nty t(c) < quota)%Q) /\ 
@@ -88,9 +90,9 @@ Definition ACT_TransferElected (prem: Machine_States) (conc: Machine_States) : P
   prem = state ([], t, p, bl, e, h) /\
   (length (proj1_sig e) < st) /\
   (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\
-  exists l c,
-   (bl = (c :: l,[]) /\
-   nbl = (l,[]) /\
+  exists l c bl2,
+   (bl = (c :: l,bl2) /\
+   nbl = (l,bl2) /\
    nba = last (p c) [] /\ np(c) = [] /\
      (forall d, d <> c -> np(d) = p(d))) /\
    conc = state (nba, t, np, nbl, e, h).
@@ -110,34 +112,41 @@ Definition ACT_Elect (prem: Machine_States) (conc: Machine_States) : Prop :=
      (forall c, ~ In c l -> np (c) = p (c)) /\
      fst nbl = (fst bl) ++ l) /\
   conc = state ([], t, np, nbl, ne, nh).
-
+(*
 Definition ACT_TransferElected2 (prem: Machine_States) (conc: Machine_States) :=
  exists nba t p np bl nbl h e,         
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
     (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\       
-    exists l c c' l',                          
-     (bl = (c :: l, c'::l') /\                   
-     nbl = (l, l') /\                          
+    exists l c,                          
+     (bl = (c :: l, []) /\                   
+     nbl = (l, []) /\                          
      nba = concat (p c) /\
      concat (p c') = [] /\           
      np(c) = [] /\                                 
      (forall d, d <> c -> np(d) = p(d))) /\    
    conc = state (nba, t, np, nbl, e, h). 
+*)
 
 Definition ACT_TransferElim (prem: Machine_States) (conc: Machine_States) :=
  exists nba t p np bl nbl h e,         
   prem = state ([], t, p, bl, e, h) /\ 
     (length (proj1_sig e) < st) /\
     (forall c, In c (proj1_sig h) -> ((hd nty t) c < quota)%Q) /\       
-    exists l c c' l',                          
-     (bl = (c :: l, c'::l') /\                   
-     nbl = (c::l, c'::l') /\
-      (concat (p c') <> []) /\ 
+    exists bl1 c' l',                          
+     (bl = (bl1, c'::l') /\                   
+    (*(match  (concat (np c')) with
+        [] => nbl = (bl1, l')
+       | _ => nbl = (bl1, c'::l')
+      end) /\*)
+      (concat (p c') <> []) /\  
+      nbl = (bl1, c'::l') /\
       let x:= (groupbysimple _ (sort (concat (p c')))) in
        (nba = last x []) /\
-       np c' = (removelast x) /\                                        
-     (forall d, d <> c' -> np(d) = p(d))) /\    
+       np c' = (removelast x) /\
+       (*/\
+       (match concat (np c') with [] => (nbl = (bl1,l')) | _ => (nbl = (bl1,c'::l')) end) *)
+       (forall d, d <> c' -> np(d) = p(d))) /\    
    conc = state (nba, t, np, nbl, e, h). 
 
 Lemma ACTInitStep_SanityCheck_App : SanityCheck_Initial_App ACT_InitStep.
@@ -236,7 +245,8 @@ Lemma ACTCount_SanityCheck_Red: SanityCheck_Count_Red ACT_count.
  rewrite H. auto.
 Qed.
 
-Lemma  ACTHwin_SanityCheck_App : SanityCheck_Hwin_App ACT_hwin.                 Proof.
+Lemma  ACTHwin_SanityCheck_App : SanityCheck_Hwin_App ACT_hwin.                 
+Proof.
  unfold SanityCheck_Hwin_App.
  intros.
  unfold ACT_hwin.
@@ -295,18 +305,24 @@ Proof.
  exists (state (flat_map (fun x => x) (p min), t, fun d => if (cand_eq_dec d min) then [] else (p d),
                                                 ([], []), e, exist _ (remc min (proj1_sig h)) H'1)). 
  exists (flat_map (fun x => x) (p min)).
- exists t. exists p. exists (fun d => if (cand_eq_dec d min) then [] else (p d)). exists e. exists h. 
+ exists t. exists p. exists (fun d => if (cand_eq_dec d min) then [] else (p d)). exists bl2. exists e. exists h. 
  exists (exist _ (remc min (proj1_sig h)) H'1).
  intuition.
- exists bl2.
+(* exists bl2. 
  intuition.
- simpl.
+ simpl.*)
  exists min.
  intuition.
  apply (remc_ok min (proj1_sig h) (proj2_sig h) s1).
  destruct (cand_eq_dec min min) as [i | j]. reflexivity.
  contradict j. auto.
  destruct (cand_eq_dec d min) as [i | j]. contradiction i. reflexivity.
+
+ exists min.
+ intuition.
+ apply (remc_ok min (proj1_sig h) (proj2_sig h) s1).
+ destruct (cand_eq_dec min min) as [i | j]. auto. contradict j. reflexivity.
+ destruct (cand_eq_dec d min) as [i | j]. contradiction. auto.
 Qed.
 
 Lemma ACTElim_SanityCheck_Red : SanityCheck_Elim_Red ACT_elim.
@@ -314,10 +330,10 @@ Lemma ACTElim_SanityCheck_Red : SanityCheck_Elim_Red ACT_elim.
  unfold SanityCheck_Elim_Red.
  intros. 
  unfold ACT_elim in H.
- destruct H as [nba [t [p [np [e [h [nh [bl2 H1]]]]]]]].
+ destruct H as [nba [t [p [np [bl2 [e [h [nh  H1]]]]]]]].
  destruct H1 as [H11 [H12 [H13 H14]]].
  destruct H14 as [weakest H141]. 
- exists nba. exists t. exists p. exists np. exists e. exists h. exists nh.  
+ exists nba. exists t. exists p. exists np. exists e. exists h. exists nh.  exists bl2. exists ([]: list cand). 
  intuition.
  unfold eqe in H1.
  destruct H1 as [l1 [l2 [H' [H'' [H''' H'''']]]]].
@@ -329,37 +345,41 @@ Lemma ACTElim_SanityCheck_Red : SanityCheck_Elim_Red ACT_elim.
  simpl. auto.  
  rewrite Hyp.
  simpl.
- rewrite (app_length).
- exists bl2. 
+ rewrite (app_length). omega.
+(* exists ([]: list cand). 
  exists ([]: list cand).
- intuition.
+ intuition. *)
 Qed.
 
-Lemma ACT_TransferElected_SanityCheck_App : SanityCheck_Transfer1_App ACT_TransferElected.
+Lemma ACT_TransferElected_SanityCheck_App : SanityCheck_TransferElected_App ACT_TransferElected.
 Proof.
- unfold SanityCheck_Transfer1_App.
+ unfold SanityCheck_TransferElected_App.
  intros.
- destruct H0 as [H1 [H2 H3]].
- specialize (list_nonempty_type cand (fst bl) H2). intro Hyp. destruct Hyp as [head [tail Hyp1]].
- exists (state (last (p head) [], t, fun d => if (cand_eq_dec d head) then [] else (p d), (tail,[]), e, h)).
+ destruct H0 as [H1 [H2 [H3 H4]]].
+ specialize (list_nonempty_type cand bl1 H2). intro Hyp. destruct Hyp as [head [tail Hyp1]].
+ exists (state (last (p head) [], t, fun d => if (cand_eq_dec d head) then [] else (p d), (tail,bl2), e, h)).
  unfold ACT_TransferElected. exists (last (p head) []). exists t. exists p.
  exists (fun d => if (cand_eq_dec d head) then [] else (p d)).
- exists (head::tail, ([]: list cand)). exists (tail, ([]: list cand)). exists h. exists e. rewrite Hyp1 in H. simpl in H.
+ exists (head::tail, (bl2: list cand)). exists (tail, (bl2: list cand)). exists h. exists e. rewrite Hyp1 in H. simpl in H.
  intuition.
- exists tail. exists head.
+ exists tail. exists head. exists bl2.
  intuition.
  destruct (cand_eq_dec head head) as [i | j]. reflexivity. contradict j. auto.
  destruct (cand_eq_dec d head) as [i | j]. contradiction i. reflexivity.
+
+exists tail. exists head. exists bl2. intuition.
+destruct (cand_eq_dec head head) as [i | j]. auto. contradict j. reflexivity.
+destruct (cand_eq_dec d head) as [i |j]. contradiction. auto.
 Qed.
 
-Lemma ACT_TransferElected_SanityCheck_Red : SanityCheck_Transfer_Red ACT_TransferElected.
+Lemma ACT_TransferElected_SanityCheck_Red : SanityCheck_TransferElected_Red ACT_TransferElected.
 Proof.
- unfold SanityCheck_Transfer_Red.
+ unfold SanityCheck_TransferElected_Red.
  intros.
  unfold ACT_TransferElected in H.
  destruct H as [nba [t [p [np [bl [nbl [h [e H1]]]]]]]].
  destruct H1 as [H11 [H12 [H13 H14]]].
- destruct H14 as [l [candid H141]].
+ destruct H14 as [l [candid [bl2 H141]]].
  destruct H141 as [H1411 H1412].
  destruct H1411 as [H3 [H4 H5]].
  exists nba. exists t. exists p. exists np. exists bl. exists nbl. exists h. exists e.
@@ -367,8 +387,17 @@ Proof.
  rewrite H3.
  rewrite H4.
  simpl.
- left.
+(* left. *)
  omega.
+ assert (Leneq: forall d, In d bl2 -> length (concat (p d)) = length (concat (np d))).
+ intros d Assum.
+ specialize (Bl_hopeful_NoIntersect premise [] t p bl e h). 
+ intuition.
+ assert (Hypos: d <> candid). intro HypoAux. specialize (b candid). rewrite H3 in b. simpl in b.
+ apply b. left;auto. rewrite HypoAux in Assum. auto.
+ specialize (H2 d Hypos). rewrite H2. reflexivity.
+ specialize (map_ext_in (fun c => length (concat (p c))) (fun c => length (concat (np c))) bl2 Leneq).
+ intro H0. rewrite H3. simpl.  rewrite H4. simpl. rewrite H0. auto.
 Qed.
 
 Lemma ACT_Elect_SanityCheck_App : SanityCheck_Elect_App ACT_Elect.
@@ -461,6 +490,7 @@ Proof.
  omega.
 Qed.
 
+(*
 Lemma ACTTran2_SanityCheck_App : SanityCheck_Transfer2_App ACT_TransferElected2. 
 Proof.
  unfold SanityCheck_Transfer2_App.
@@ -529,31 +559,36 @@ Proof.
  omega.
  auto.
 Qed.
+*)
 
 Hypothesis Bl_NoDup : forall j: Machine_States, forall ba t p bl e h, 
   j = state (ba,t,p,bl,e,h) -> NoDup (snd bl).
 
 
-Lemma ACT_TransferElim_SanityCheck_App : SanityCheck_Transfer3_App ACT_TransferElim.
+Lemma ACT_TransferRemoved_SanityCheck_App : SanityCheck_TransferRemoved_App ACT_TransferElim.
 Proof.
- unfold SanityCheck_Transfer3_App.
+ unfold SanityCheck_TransferRemoved_App.
  intros.
- destruct H0 as [H1 [H2 [H3 H4]]].
+ (* destruct H0 as [H1 [H2 [H3 H4]]]. *)
+destruct H0 as [H1 [H2 H3]].
  unfold ACT_TransferElim.
  exists (state (((last (groupbysimple _ (sort (concat (p c)))) []): list ballot),
  t, fun d => if (cand_eq_dec d c) then (removelast (groupbysimple _ (sort (concat (p c))))) else p d, (bl1, c::bl2), e, h)). 
  exists (last (groupbysimple _ (sort (concat (p c)))) []). 
  exists t. exists p. exists (fun d => if (cand_eq_dec d c) 
    then (removelast ((groupbysimple _ (sort (concat (p c))))))  else p d). 
- exists (bl1,c::bl2). exists (bl1, c::bl2). exists h. exists e. intuition.
- specialize (list_nonempty_type cand bl1 H2). intro Nbl1.
+ exists (bl1,c::bl2). 
+ exists (bl1, c::bl2). 
+exists h. exists e. intuition. 
+  exists bl1. exists c. exists bl2. intuition.
+(*specialize (list_nonempty_type cand bl1 H2). intro Nbl1.
  destruct Nbl1 as [Hbl1 [Tbl1 bl1N]].
  exists Tbl1. exists Hbl1. exists c. exists bl2.
  rewrite bl1N.
- intuition.
- destruct (cand_eq_dec c c) as [i | j].
- auto. contradict j. reflexivity.
- destruct (cand_eq_dec d c) as [i |j].
+ intuition. *)
+ destruct (cand_eq_dec c c) as [i | j]. simpl. trivial.
+ contradict j. reflexivity.
+ destruct (cand_eq_dec d c) as [i |j]. simpl. trivial.
  contradiction i. reflexivity.
 Qed.
 
@@ -565,20 +600,23 @@ Proof.
   simpl. rewrite IH; apply app_assoc.
 Qed.
  
-Lemma ACT_TransferElim_SanityCheck_Red: SanityCheck_Transfer_Red ACT_TransferElim.
+Lemma ACT_TransferRemoved_SanityCheck_Red: SanityCheck_TransferRemoved_Red ACT_TransferElim.
 Proof.
- unfold SanityCheck_Transfer_Red. 
+ unfold SanityCheck_TransferRemoved_Red. 
  intros.
  unfold ACT_TransferElim in H.
  destruct H as [nba [t [p [np [bl [nbl [h [e H1]]]]]]]].
  destruct H1 as [H11 [H12 [H13 H14]]].
- destruct H14 as [Tbl1 [Hbl1 [Hbl2 [Tbl2 H15]]]].
+ destruct H14 as [bl1 [Hbl2 [Tbl2 H15]]]. 
+ (*destruct H14 as [bl1 [c' [l' H15]]].*)
  destruct H15 as [H151 H152].  
- destruct H151 as [K1 K2].
- destruct K2 as [K21 [K22 [K23 [K24 K25]]]].
+ destruct H151 as [K1 [K11 K2]].
+ destruct K2 as [K21 [K22 [K23 K24]]].
  exists nba. exists t. exists p. exists np. exists bl. exists nbl. exists h. exists e.
  split. assumption.
- split. right. rewrite K1. rewrite K21. simpl. split. auto.
+ split. rewrite K1. rewrite K21. simpl. auto.
+ rewrite K1. rewrite K21. simpl.
+
  assert (Tbl2_NoDup: NoDup (Hbl2 :: Tbl2)). 
  specialize (Bl_NoDup (state ([],t,p,bl,e,h)) [] t p bl e h (eq_refl)).
  rewrite K1 in Bl_NoDup.
@@ -592,7 +630,7 @@ Proof.
  intros d InTbl2.
  assert (not_eq_d: d <> Hbl2).
  intro cont. rewrite cont in InTbl2. apply Hbl2_notInTail. assumption.
- specialize (K25 d not_eq_d).
+ specialize (K24 d not_eq_d).
  auto.
  assert (Len_piles_eq: forall d, In d Tbl2 -> length (concat (p d)) = length (concat (np d))).
  intros d Hy.
@@ -600,8 +638,9 @@ Proof.
  rewrite Piles_eq_Tbl2. auto.
  specialize (map_ext_in (fun c => length (concat (p c))) (fun c => length (concat (np c))) Tbl2 Len_piles_eq). 
  intro nice.
- rewrite nice.  
- rewrite K24.
+ rewrite nice.
+ (* rewrite K24.*)
+ rewrite K23.
  assert (Hypo: (groupbysimple _ (sort (concat (p Hbl2)))) <> []).
  apply groupbysimple_not_empty.
  apply sherin. 
@@ -632,24 +671,24 @@ Proof.
             l <> []  -> 0 < length l).  
  intros. destruct l. contradiction H. auto. simpl. omega.
  specialize (groupby_notempty _ (sort (concat (p Hbl2)))). intros.
- pose proof (sortedList_notempty (concat (p Hbl2)) K22).
+ pose proof (sortedList_notempty (concat (p Hbl2)) K11).
  specialize (H H0). 
  specialize (Hlen _ _ H).
- rewrite app_nil_r.
+ rewrite app_nil_r. split.
  apply Nat.add_lt_mono_r.
- apply NPeano.Nat.lt_add_pos_r. trivial.
+ apply NPeano.Nat.lt_add_pos_r. trivial. rewrite <- K21.
  auto.
 Qed.
 
 
 Variable bs: list ballot.
 
-Definition ActSTV := (mkSTV (quota)  
+Definition ActSTV := (mkSTV 
     (ACT_InitStep) (ACTInitStep_SanityCheck_App) (ACTInitStep_SanityCheck_Red) 
     (ACT_count) (ACTCount_SanityCheck_App) (ACTCount_SanityCheck_Red)
     (ACT_TransferElected) (ACT_TransferElected_SanityCheck_App) (ACT_TransferElected_SanityCheck_Red)
-    (ACT_TransferElected2) (ACTTran2_SanityCheck_App) (ACTTran2_SanityCheck_Red)
-    (ACT_TransferElim) (ACT_TransferElim_SanityCheck_App) (ACT_TransferElim_SanityCheck_Red)
+   (* (ACT_TransferElected2) (ACTTran2_SanityCheck_App) (ACTTran2_SanityCheck_Red) *)
+    (ACT_TransferElim) (ACT_TransferRemoved_SanityCheck_App) (ACT_TransferRemoved_SanityCheck_Red)
     (ACT_Elect) (ACT_Elect_SanityCheck_App) (ACT_Elect_SanityCheck_Red)
     (ACT_elim) (ACTElim_SanityCheck_App) (ACTElim_SanityCheck_Red)
     (ACT_hwin) (ACTHwin_SanityCheck_App) (ACTHwin_SanityCheck_Red)
