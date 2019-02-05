@@ -1,5 +1,3 @@
-Please note that the contributors are improving this framework further. If you wished to test the software, git clone any commit made before Dec 15th 2018.
-
 This repository hosts a modular framework for STV Calculi.
 
 To obtain executable Haskell program that correctly computes election results for some input ballots, you need to do the following instructions;
