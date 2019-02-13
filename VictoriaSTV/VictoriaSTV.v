@@ -24,8 +24,10 @@ Require Import Coq.Program.Basics.
 Require Import Coq.Arith.Wf_nat.
 Require Import Program.
 Require Import  Recdef.
+Add LoadPath "/home/users/u5711205/Modular-STVCalculi/".
 Require Export Parameters.
 Require Import FrameBase.
+Add LoadPath "/home/users/u5711205/Modular-STVCalculi/VictoriaSTV".
 Require Export Instantiation.
 Import Instantiate.
 Import M.
@@ -92,8 +94,8 @@ Definition VIC_transfer (prem: Machine_States) (conc: Machine_States) : Prop :=
      (forall d, d <> c -> np(d) = p(d))) /\ (* and the piles for every other candidate remain the same *)   
    conc = state (nba, t, np, nbl, e, h).  
 
-Definition VIC_elect (prem: Machine_States) (conc: Machine_States) : Prop :=
- exists t p np (bl nbl: (list cand) * (list cand)) (nh h: {hopeful: list cand | NoDup hopeful})(e ne: {l : list cand | length l <= st }),
+  Definition VIC_elect (prem: Machine_States) (conc: Machine_States) : Prop :=
+   exists t p np (bl nbl: (list cand) * (list cand)) h nh e ne
     prem = state ([], t, p, bl, e, h) /\ 
     exists l,                                      
      (l <> [] /\                                  
@@ -103,10 +105,12 @@ Definition VIC_elect (prem: Machine_States) (conc: Machine_States) : Prop :=
      Leqe l (proj1_sig nh) (proj1_sig h) /\          
      Leqe l (proj1_sig e) (proj1_sig ne) /\     
      (forall c, In c l -> ((np c) = map (map (fun (b : ballot) => 
-        (fst b, (Qred (snd b * (Qred ((hd nty t)(c)- quota)/(hd nty t)(c))))%Q))) (p c))) /\  
+       (fst b, (Qred (snd b * (Qred ((hd nty t)(c)- quota)/(hd nty t)(c))))%Q))) (p c))) /\  
      (forall c, ~ In c l -> np (c) = p (c)) /\  
     fst nbl = (fst bl) ++ l) /\                                 
-  conc = state ([], t, np, nbl, ne, nh).      
+   conc = state ([], t, np, nbl, ne, nh).      
+
+(* (nh h: {hopeful: list cand | NoDup hopeful})(e ne: {l : list cand | length l <= st }), *)
 
 Definition VIC_TransferElected2 (prem: Machine_States) (conc: Machine_States) :=
  exists nba t p np bl nbl h e,         
