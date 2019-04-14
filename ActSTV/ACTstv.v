@@ -33,7 +33,7 @@ Import Instantiate.
 Import M.
 Import QSort.
 
-Module Act.
+(*Module Act.*)
 
 Section ACT.
 
@@ -97,8 +97,26 @@ Definition ACT_TransferElected (prem: Machine_States) (conc: Machine_States) : P
      (forall d, d <> c -> np(d) = p(d))) /\
    conc = state (nba, t, np, nbl, e, h).
 
-Definition ACT_Elect (prem: Machine_States) (conc: Machine_States) : Prop :=
- exists t p np (bl nbl: (list cand) * (list cand)) nh h (e ne: {l : list cand | length l <= st }),
+ (*
+ Definition CADE_elect 
+  (prem: Machine_States) (conc: Machine_States) : Prop :=
+   exists nba t p np bl nbl  nh h e ne,
+   (1) prem = state ([], t, p, bl, e, h) /\ 
+   (2) exists c,                                                                  
+   (3)  length (proj1_sig e) + 1 <= st /\    
+   (4)  In c (proj1_sig h) /\ (hd nty t (c) >= quota)%Q /\      
+   (5)  eqe c (proj1_sig e) (proj1_sig ne) /\          
+   (6)  (forall d, In d (proj1_sig nh) <-> 
+         In d cand_all /\ (~ In d (proj1_sig ne))) /\     
+   (7)  (forall d, In d cand_all -> (np d = [])) /\ 
+   (8)  (fst nbl = []) /\
+   (9)  (nba = Append_All cand_all p) /\           
+   (10) conc = state (nba, t, np, nbl, ne, nh).      
+ *)
+
+
+ Definition ACT_Elect (prem: Machine_States) (conc: Machine_States) : Prop :=
+  exists (nba: list ballot) t p np (bl nbl: (list cand) * (list cand)) nh h e ne,
     prem = state ([], t, p, bl, e, h) /\
     exists l,
      (l <> [] /\
@@ -108,11 +126,12 @@ Definition ACT_Elect (prem: Machine_States) (conc: Machine_States) : Prop :=
      Leqe l (proj1_sig nh) (proj1_sig h) /\
      Leqe l (proj1_sig e) (proj1_sig ne) /\
      (forall c, In c l -> ((np c) = map (map (fun (b : ballot) =>
-         (fst b, (Qred (snd b * (Update_transVal c p (hd nty t))))%Q))) [(last (p c) [])])) /\
+      (fst b, (Qred (snd b * (Update_transVal c p (hd nty t))))%Q))) [(last (p c) [])])) /\
      (forall c, ~ In c l -> np (c) = p (c)) /\
-     fst nbl = (fst bl) ++ l) /\
-  conc = state ([], t, np, nbl, ne, nh).
-(*
+     fst nbl = (fst bl) ++ l) /\ (nba = []) /\
+   conc = state ([], t, np, nbl, ne, nh).
+
+(* (e ne: {l : list cand | length l <= st })
 Definition ACT_TransferElected2 (prem: Machine_States) (conc: Machine_States) :=
  exists nba t p np bl nbl h e,         
   prem = state ([], t, p, bl, e, h) /\ 
@@ -420,7 +439,7 @@ Proof.
  exists (state ([], t, fun c => update_pile_ManualACT p (hd nty t) listElected quota c, 
 ((fst bl) ++ listElected, snd bl), exist _ ((proj1_sig e) ++ listElected) Assum, 
                                    exist _ (Removel listElected (proj1_sig h)) NoDupH)). 
- exists t. exists p. exists (fun x => update_pile_ManualACT p (hd nty t) listElected quota x).
+ exists ([]: list ballot).  exists t. exists p. exists (fun x => update_pile_ManualACT p (hd nty t) listElected quota x).
  exists bl. exists ((fst bl) ++ listElected, snd bl). exists (exist _ (Removel listElected (proj1_sig h)) NoDupH).
  exists h. exists e. exists (exist (fun v => length v <= st) ((proj1_sig e) ++ listElected) Assum).
  split. auto.
@@ -460,26 +479,102 @@ Proof.
  auto. 
 Qed.
 
+Lemma subList_CandAll : forall l, incl l cand_all. 
+Proof.
+ intro l.
+ unfold incl.
+ intros.
+   apply (cand_finite a).
+Qed. 
+
+Hypothesis noDup_elect : forall j: Machine_States, forall ba t p bl e h, 
+  j = state (ba,t,p,bl,e,h) -> NoDup (proj1_sig e).
+
+Variable A : Type.
+
+ Inductive Add (a:Cand) : list Cand -> list Cand -> Prop :=
+    | Add_head l : Add a l (a::l)
+    | Add_cons x l l' : Add a l l' -> Add a (x::l) (x::l').
+
+Lemma Add_app a l1 l2 : Add a (l1++l2) (l1++a::l2).
+  Proof.
+   induction l1; simpl; now constructor.
+  Qed.
+
+ Lemma Add_inv a l : In a l -> exists l', Add a l' l.
+  Proof.
+   intro Ha. destruct (in_split _ _ Ha) as (l1 & l2 & ->).
+   exists (l1 ++ l2). apply Add_app.
+  Qed.
+
+
+  Lemma Add_length a l l' : Add a l l' -> length l' = S (length l).
+  Proof.
+   induction 1; simpl; auto with arith.
+  Qed.
+
+
+  Lemma Add_in a l l' : Add a l l' ->
+   forall x, In x l' <-> In x (a::l).
+  Proof.
+   induction 1; intros; simpl in *; rewrite ?IHAdd; tauto.
+  Qed.
+
+  Lemma incl_Add_inv a l u v :
+    ~In a l -> incl (a::l) v -> Add a u v -> incl l u.
+  Proof.
+   intros Ha H AD y Hy.
+   assert (Hy' : In y (a::u)).
+   { rewrite <- (Add_in a u v AD). apply H; simpl; auto. }
+   destruct Hy'; [ subst; now elim Ha | trivial ].
+  Qed.
+
+ Lemma NoDup_incl_length (l: list Cand) l' :
+    NoDup l -> incl l l' -> length l <= length l'.
+  Proof.
+   intros N. revert l'. induction N as [|a l Hal N IH]; simpl.
+   - auto with arith.
+   - intros l' H.
+     destruct (Add_inv a l') as (l'', AD). { apply H; simpl; auto. }
+     rewrite (Add_length a l'' l' AD). apply le_n_S. apply IH.
+     now apply incl_Add_inv with a l'.
+  Qed.
+
 Lemma ACT_Elect_SanityCheck_Red : SanityCheck_Elect_Red ACT_Elect.
 Proof.
  unfold SanityCheck_Elect_Red.
  intros premise conclusion H.
  unfold ACT_Elect in H.
- destruct H as [t [p [np [bl [nbl [nh [h [e [ne H1]]]]]]]]].
- exists t. exists p; exists np. exists bl. exists nbl. exists e. exists ne. exists nh. exists h. 
+ destruct H as [nba [t [p [np [bl [nbl [nh [h [e [ne H1]]]]]]]]]].
+ exists nba. exists t. exists p; exists np. exists bl. exists nbl. exists e. exists ne. exists nh. exists h. 
  destruct H1 as [H11 H12].
  destruct H12 as [l H121].
  intuition.
- unfold Leqe in H4.
- specialize (Permutation_length H4). intro Permut_length.
+ unfold Leqe in H6.
+ specialize (Permutation_length H6). intro Permut_length.
+ assert (lem: forall n m k, k <= n -> m <= n -> m < k -> (n - k < n - m)).
+  intros. omega.
+ apply lem.
+ specialize (noDup_elect (state([],t,np,nbl,ne,nh)) [] t np nbl ne nh eq_refl). 
+ apply (NoDup_incl_length (` ne) cand_all).
+ auto.
+ apply subList_CandAll.
+ specialize (noDup_elect (state([],t,p,bl,e,h)) [] t p bl e h eq_refl).
+ apply (NoDup_incl_length (` e) cand_all). 
+ auto.
+ apply subList_CandAll.
+
  rewrite Permut_length.
  rewrite  app_length.
  specialize (list_nonempty_type cand l H1). intro X.
  destruct X as [c [l' HX]].
- rewrite HX.
+ rewrite HX. (*Search (_ - _  < _).
+ Require Import Psatz. Require Import Coq.omega.PreOmega. zify.*)
  simpl.  
  omega.  
- unfold Leqe in H5.
+ rewrite H.
+ assumption.
+(* unfold Leqe in H5.
  specialize (Permutation_length H5). intro H8.
  rewrite H8.
  rewrite app_length.
@@ -487,7 +582,7 @@ Proof.
  destruct X as [c [l' HX]]. 
  rewrite HX.
  simpl.
- omega.
+ omega.*)
 Qed.
 
 (*
@@ -707,7 +802,9 @@ Definition Act_Termination := M.Termination bs (initial (Filter bs)) init_stages
 
 End ACT.
 
+(*End Act.*)
+
 Extraction Language Haskell.
 Extraction "Act.hs" Act_Termination.
 
-End Act.
+(*End Act.*)
